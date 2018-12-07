@@ -3,9 +3,9 @@
   (:require [hsl.core :refer [hsl]]
             [app.schema :as schema]
             [respo-ui.core :as ui]
-            [respo-ui.colors :as colors]
-            [respo.macros :refer [defcomp list-> <> span div a]]
-            [respo.comp.space :refer [=<]]))
+            [respo.core :refer [defcomp list-> <> span div button]]
+            [respo.comp.space :refer [=<]]
+            [app.config :as config]))
 
 (defcomp
  comp-profile
@@ -35,13 +35,15 @@
   (=< nil 48)
   (div
    {}
-   (a
-    {:style {:font-size 14,
-             :cursor :pointer,
-             :background-color colors/motif-light,
-             :color :white,
-             :padding "0 8px"},
+   (button
+    {:style (merge ui/button),
+     :on-click (fn [e d! m!]
+       (.replace js/location (str js/location.origin "?time=" (.now js/Date))))}
+    (<> "Refresh"))
+   (=< 8 nil)
+   (button
+    {:style (merge ui/button {:color :red, :border-color :red}),
      :on-click (fn [e dispatch! mutate!]
        (dispatch! :user/log-out nil)
-       (.removeItem js/localStorage (:storage-key schema/configs)))}
-    (<> span "Log out" nil)))))
+       (.removeItem js/localStorage (:storage-key config/site)))}
+    (<> "Log out")))))
