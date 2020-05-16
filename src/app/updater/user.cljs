@@ -1,5 +1,5 @@
 
-(ns app.updater.user (:require [app.util :refer [find-first]] ["md5" :as md5]))
+(ns app.updater.user (:require [cumulo-util.core :refer [find-first]] ["md5" :as md5]))
 
 (defn log-in [db op-data sid op-id op-time]
   (let [[username password] op-data
@@ -34,7 +34,7 @@
        db
        [:sessions sid :messages]
        (fn [messages]
-         (assoc messages op-id {:id op-id, :text (str "Name is token: " username)})))
+         (assoc messages op-id {:id op-id, :text (str "Name is taken: " username)})))
       (-> db
           (assoc-in [:sessions sid :user-id] op-id)
           (assoc-in
