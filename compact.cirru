@@ -131,6 +131,18 @@
               fn (messages)
                 dissoc messages $ :id op-data
       :proc $ quote ()
+    |app.updater.message $ {}
+      :ns $ quote
+        ns app.updater.message $ :require (app.schema :as schema)
+      :defs $ {}
+        |add-message $ quote
+          defn add-message (db op-data sid op-id op-time)
+            let
+                user-id $ get-in db ([] :sessions sid :user-id)
+              assoc-in db ([] :messages op-id)
+                merge schema/message $ {} (:id op-id) (:time op-time) (:content op-data) (:author-id user-id)
+      :proc $ quote ()
+      :configs $ {}
     |app.schema $ {}
       :ns $ quote (ns app.schema)
       :defs $ {}
@@ -138,6 +150,7 @@
           def database $ {}
             :sessions $ do session ({})
             :users $ do user ({})
+            :messages $ do message ({})
         |router $ quote
           def router $ {} (:name nil) (:title nil)
             :data $ {}
@@ -149,10 +162,14 @@
             :messages $ {}
         |user $ quote
           def user $ {} (:name nil) (:id nil) (:nickname nil) (:avatar nil) (:password nil)
+        |message $ quote
+          def message $ {} (:id nil) (:content "\"") (:time nil)
+            :child-ids $ #{}
+            :author-id nil
       :proc $ quote ()
     |app.updater $ {}
       :ns $ quote
-        ns app.updater $ :require (app.updater.session :as session) (app.updater.user :as user) (app.updater.router :as router) (app.schema :as schema)
+        ns app.updater $ :require (app.updater.session :as session) (app.updater.user :as user) (app.updater.router :as router) (app.updater.message :as message) (app.schema :as schema)
           respo-message.updater :refer $ update-messages
       :defs $ {}
         |updater $ quote
@@ -170,6 +187,7 @@
                   :user/sign-up user/sign-up
                   :user/log-out user/log-out
                   :router/change router/change
+                  :message/add message/add-message
               f db op-data sid op-id op-time
       :proc $ quote ()
     |app.config $ {}
@@ -178,7 +196,7 @@
         |dev? $ quote
           def dev? $ = "\"dev" (get-env "\"mode")
         |site $ quote
-          def site $ {} (:port 5021) (:title "\"Cumulo") (:icon "\"http://cdn.tiye.me/logo/cumulo.png") (:theme "\"#eeeeff") (:storage-key "\"workflow-storage-calcit") (:storage-file "\"storage.edn")
+          def site $ {} (:port 5021) (:title "\"Polygonum") (:icon "\"http://cdn.tiye.me/logo/cumulo.png") (:theme "\"#eeeeff") (:storage-key "\"workflow-storage-calcit") (:storage-file "\"storage.edn")
       :proc $ quote ()
     |app.twig.user $ {}
       :ns $ quote
@@ -211,7 +229,7 @@
               :effect/connect $ connect!
         |*store $ quote (defatom *store nil)
         |main! $ quote
-          defn main! ()
+          defn main! () (load-console-formatter!)
             println "\"Running mode:" $ if config/dev? "\"dev" "\"release"
             render-app!
             connect!
@@ -294,9 +312,9 @@
     |app.comp.container $ {}
       :ns $ quote
         ns app.comp.container $ :require
-          hsl.core :refer $ hsl
+          respo.util.format :refer $ hsl
           respo-ui.core :as ui
-          respo.core :refer $ defcomp <> >> div span button input pre
+          respo.core :refer $ defcomp <> >> div span button input textarea pre list->
           respo.comp.inspect :refer $ comp-inspect
           respo.comp.space :refer $ =<
           app.comp.navigation :refer $ comp-navigation
@@ -325,15 +343,7 @@
                   comp-navigation (:logged-in? store) (:count store)
                   if (:logged-in? store)
                     case-default (:name router) (<> router)
-                      :home $ div
-                        {} $ :style
-                          {} $ :padding "\"8px"
-                        input $ {} (:style ui/input)
-                          :value $ :demo state
-                        =< 8 nil
-                        <> "\"demo page"
-                        pre $ {}
-                          :inner-text $ str "\"backend data" (format-cirru-edn store)
+                      :home $ comp-chat-space (>> states :chat) (:data router)
                       :profile $ comp-profile (:user store) (:data router)
                     comp-login $ >> states :login
                   comp-status-color $ :color store
@@ -368,6 +378,57 @@
               :style $ let
                   size 24
                 {} (:width size) (:height size) (:position :absolute) (:bottom 60) (:left 8) (:background-color color) (:border-radius "\"50%") (:opacity 0.6) (:pointer-events :none)
+        |comp-chat-space $ quote
+          defcomp comp-chat-space (states data)
+            let
+                cursor $ :cursor states
+                state $ or (:data states)
+                  {} $ :draft "\""
+              div
+                {} $ :style (merge ui/expand ui/row)
+                div
+                  {} $ :style
+                    merge ui/column $ {} (:width 400)
+                      :border-right $ str "\"1px solid " (hsl 0 0 90)
+                  list->
+                    {} $ :style ui/expand
+                    -> data
+                      or $ {}
+                      .to-list
+                      .sort-by $ fn (pair)
+                        :time $ last pair
+                      .map $ fn (pair)
+                        [] (first pair)
+                          comp-message $ last pair
+                  div
+                    {} $ :style
+                      merge ui/row $ {} (:height 120)
+                    textarea $ {}
+                      :style $ merge ui/expand ui/textarea
+                      :value $ :draft state
+                      :on-input $ fn (e d!)
+                        let
+                            text $ -> e :event .-target .-value
+                          d! cursor $ assoc state :draft text
+                    =< 8 nil
+                    div ({})
+                      button $ {} (:style ui/button) (:inner-text "\"Send")
+                        :on-click $ fn (e d!)
+                          when-not
+                            blank? $ :draft state
+                            d! :message/add $ :draft state
+                            d! cursor $ assoc state :draft "\""
+        |comp-message $ quote
+          defcomp comp-message (message)
+            div
+              {} $ :style
+                {} $ :padding 8
+              div ({})
+                <> $ or (:content message) "\"-"
+              div ({})
+                <> $ :author-id message
+                =< 8 nil
+                <> $ :time message
       :proc $ quote ()
     |app.comp.profile $ {}
       :ns $ quote
@@ -395,7 +456,7 @@
                 =< 8 nil
                 list->
                   {} $ :style ui/row
-                  -> members (to-pairs)
+                  -> members (.to-list)
                     map $ fn (pair)
                       let[] (k username) pair $ [] k
                         div
@@ -442,7 +503,7 @@
                     get-in db $ [] :users (:user-id session)
                   :router $ assoc router :data
                     case (:name router)
-                      :home $ :pages db
+                      :home $ :messages db
                       :profile $ memof-call twig-members (:sessions db) (:users db)
                       (:name router) ({})
                   :count $ count (:sessions db)
@@ -450,7 +511,7 @@
                 , nil
         |twig-members $ quote
           defn twig-members (sessions users)
-            -> sessions (to-pairs)
+            -> sessions (.to-list)
               map $ fn (pair)
                 let[] (k session) pair $ [] k
                   get-in users $ [] (:user-id session) :name
