@@ -1,7 +1,7 @@
 
 {} (:package |app)
   :configs $ {} (:init-fn |app.server/main!) (:reload-fn |app.server/reload!)
-    :modules $ [] |respo.calcit/ |lilac/ |recollect/ |memof/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/
+    :modules $ [] |respo.calcit/ |lilac/ |recollect/ |memof/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/ |alerts.calcit/
     :version nil
   :files $ {}
     |app.updater.user $ {}
@@ -291,22 +291,28 @@
           defcomp comp-navigation (logged-in? count-members)
             div
               {} $ :style
-                merge ui/row-center $ {} (:height 48) (:justify-content :space-between) (:padding "\"0 16px") (:font-size 16)
-                  :border-bottom $ str "\"1px solid " (hsl 0 0 0 0.1)
+                merge ui/column-parted $ {} (:width 64) (:justify-content :space-between) (:padding "\"0 16px") (:font-size 16)
+                  :border-right $ str "\"1px solid " (hsl 0 0 0 0.1)
                   :font-family ui/font-fancy
               div
-                {}
-                  :on-click $ fn (e d!)
-                    d! :router/change $ {} (:name :home)
-                  :style $ {} (:cursor :pointer)
-                <> (:title config/site) nil
+                {} $ :style ui/column
+                div
+                  {}
+                    :on-click $ fn (e d!)
+                      d! :router/change $ {} (:name :home)
+                    :style $ {} (:cursor :pointer)
+                  <> "\"Ployg" nil
+                =< nil 16
+                <> "\"Msg"
+                <> "\"Wiki"
               div
                 {}
-                  :style $ {} (:cursor "\"pointer")
+                  :style $ merge ui/row
+                    {} $ :cursor "\"pointer"
                   :on-click $ fn (e d!)
                     d! :router/change $ {} (:name :profile)
                 <> $ if logged-in? "\"Me" "\"Guest"
-                =< 8 nil
+                =< 4 nil
                 <> count-members
       :proc $ quote ()
     |app.comp.container $ {}
@@ -314,7 +320,7 @@
         ns app.comp.container $ :require
           respo.util.format :refer $ hsl
           respo-ui.core :as ui
-          respo.core :refer $ defcomp <> >> div span button input textarea pre list->
+          respo.core :refer $ defcomp <> >> div span button input textarea pre list-> a
           respo.comp.inspect :refer $ comp-inspect
           respo.comp.space :refer $ =<
           app.comp.navigation :refer $ comp-navigation
@@ -325,6 +331,8 @@
           app.config :refer $ dev?
           app.schema :as schema
           app.config :as config
+          "\"dayjs" :default dayjs
+          respo-alerts.core :refer $ use-prompt
       :defs $ {}
         |comp-container $ quote
           defcomp comp-container (states store)
@@ -339,7 +347,7 @@
                 router-data $ :data router
               if (nil? store) (comp-offline)
                 div
-                  {} $ :style (merge ui/global ui/fullscreen ui/column)
+                  {} $ :style (merge ui/global ui/fullscreen ui/row)
                   comp-navigation (:logged-in? store) (:count store)
                   if (:logged-in? store)
                     case-default (:name router) (<> router)
@@ -348,7 +356,7 @@
                     comp-login $ >> states :login
                   comp-status-color $ :color store
                   when dev? $ comp-inspect "\"Store" store
-                    {} (:bottom 0) (:left 0) (:max-width "\"100%")
+                    {} (:bottom 80) (:left 0) (:max-width "\"100%")
                   comp-messages
                     get-in store $ [] :session :messages
                     {}
@@ -382,53 +390,60 @@
           defcomp comp-chat-space (states data)
             let
                 cursor $ :cursor states
-                state $ or (:data states)
-                  {} $ :draft "\""
+                state $ or (:data states) ({})
+                create-plugin $ use-prompt (>> states :new)
+                  {} $ :title "\"Create Topic"
               div
                 {} $ :style (merge ui/expand ui/row)
                 div
                   {} $ :style
                     merge ui/column $ {} (:width 400)
                       :border-right $ str "\"1px solid " (hsl 0 0 90)
-                  list->
-                    {} $ :style ui/expand
-                    -> data
-                      or $ {}
-                      .to-list
-                      .sort-by $ fn (pair)
-                        :time $ last pair
-                      .map $ fn (pair)
-                        [] (first pair)
-                          comp-message $ last pair
                   div
                     {} $ :style
-                      merge ui/row $ {} (:height 120)
-                    textarea $ {}
-                      :style $ merge ui/expand ui/textarea
-                      :value $ :draft state
-                      :on-input $ fn (e d!)
-                        let
-                            text $ -> e :event .-target .-value
-                          d! cursor $ assoc state :draft text
-                    =< 8 nil
-                    div ({})
-                      button $ {} (:style ui/button) (:inner-text "\"Send")
-                        :on-click $ fn (e d!)
-                          when-not
-                            blank? $ :draft state
-                            d! :message/add $ :draft state
-                            d! cursor $ assoc state :draft "\""
+                      merge ui/row-parted $ {}
+                        :border-bottom $ str "\"1px solid " (hsl 0 0 90)
+                        :padding "\"4px 8px"
+                    <> "\"Topics"
+                    a $ {} (:style ui/link) (:inner-text "\"New")
+                      :on-click $ fn (e d!)
+                        .show create-plugin d! $ fn (text) (d! :message/add text)
+                  div
+                    {} $ :style ui/expand
+                    =< nil 20
+                    list->
+                      {} $ :style
+                        {} $ :border-bottom
+                          str "\"1px solid " $ hsl 0 0 80
+                      -> data
+                        or $ {}
+                        .to-list
+                        .sort-by $ fn (pair)
+                          negate $ :time (last pair)
+                        .map $ fn (pair)
+                          [] (first pair)
+                            comp-message $ last pair
+                    =< nil 100
+                .render create-plugin
         |comp-message $ quote
           defcomp comp-message (message)
             div
               {} $ :style
-                {} $ :padding 8
+                {} (:padding 8)
+                  :border-top $ str "\"1px solid " (hsl 0 0 88)
               div ({})
                 <> $ or (:content message) "\"-"
               div ({})
-                <> $ :author-id message
+                <>
+                  str "\"@" $ get-in message ([] :author :nickname)
+                  {} $ :color (hsl 0 0 50)
                 =< 8 nil
-                <> $ :time message
+                <>
+                  -> (:time message) (dayjs) (.format "\"HH:mm")
+                  {}
+                    :color $ hsl 0 0 70
+                    :font-weight 300
+                    :font-family ui/font-fancy
       :proc $ quote ()
     |app.comp.profile $ {}
       :ns $ quote
@@ -503,7 +518,11 @@
                     get-in db $ [] :users (:user-id session)
                   :router $ assoc router :data
                     case (:name router)
-                      :home $ :messages db
+                      :home $ -> (:messages db)
+                        map-kv $ fn (k v)
+                          [] k $ assoc v :author
+                            twig-user $ get-in db
+                              [] :users $ :author-id v
                       :profile $ memof-call twig-members (:sessions db) (:users db)
                       (:name router) ({})
                   :count $ count (:sessions db)
