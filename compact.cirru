@@ -75,19 +75,24 @@
               {} $ :style (merge ui/expand ui/row)
               -> stack
                 map-indexed $ fn (idx router)
-                  [] idx $ case-default (:name router) (comp-unknown-card router)
-                    :topics $ div
-                      {} $ :style
-                        {} $ :width 400
-                      comp-header idx
-                      comp-topics (>> states :chat) (:data router)
+                  [] idx $ div
+                    {} $ :style
+                      merge ui/column $ {} (:width 400) (:height "\"100%")
+                        :border-right $ str "\"1px solid " (hsl 0 0 90)
+                    comp-card-header (:name router) idx
+                    case-default (:name router) (comp-unknown-card router)
+                      :topics $ comp-topics (>> states :chat) (:data router)
+                      :topic $ comp-topic
+                        >> states $ str :topic
+                          get-in router $ [] :data :id
+                        :data router
                 concat $ []
                   [] 999 $ comp-start
         |comp-start $ quote
           defcomp comp-start () $ div
             {} $ :style
               {} $ :padding "\"16px 40px"
-            div ({}) (<> "\"TODO Start")
+            div ({}) (<> "\"Start...")
             =< nil 16
             div ({})
               button $ {} (:style ui/button) (:inner-text "\"Open Chat")
@@ -103,22 +108,38 @@
               button $ {} (:style ui/button) (:inner-text "\"Open Tags")
                 :on-click $ fn (e d!) (println "\"TODO")
             div ({})
-              button $ {} (:style ui/button) (:inner-text "\"Open Vites")
+              button $ {} (:style ui/button) (:inner-text "\"Open Votes")
                 :on-click $ fn (e d!) (println "\"TODO")
+        |comp-topic $ quote
+          defcomp comp-topic (states topic)
+            div
+              {} $ :style
+                {} (:padding 8)
+                  :border-top $ str "\"1px solid " (hsl 0 0 88)
+              div ({})
+                span $ {}
+                  :inner-text $ or (:content topic) "\"-"
+              div
+                {} $ :style
+                  {} $ :border-bottom
+                    str "\"1px solid " $ hsl 0 0 90
+                <>
+                  str "\"@" $ get-in topic ([] :author :nickname)
+                  {} $ :color (hsl 0 0 50)
+                =< 8 nil
+                <>
+                  -> (:time topic) (dayjs) (.format "\"HH:mm")
+                  {}
+                    :color $ hsl 0 0 70
+                    :font-weight 300
+                    :font-family ui/font-fancy
+              div ({}) (<> "\"TODO replies")
         |comp-status-color $ quote
           defcomp comp-status-color (color)
             div $ {}
               :style $ let
                   size 24
                 {} (:width size) (:height size) (:position :absolute) (:bottom 60) (:left 8) (:background-color color) (:border-radius "\"50%") (:opacity 0.6) (:pointer-events :none)
-        |comp-header $ quote
-          defcomp comp-header (idx)
-            div
-              {} $ :style ui/row-parted
-              span $ {}
-              <> "\"TODO"
-              span $ {} (:inner-text "\"Close")
-                :on-click $ fn (e d!) (d! :stack/close idx)
         |comp-topics $ quote
           defcomp comp-topics (states data)
             let
@@ -128,21 +149,19 @@
                   {} $ :title "\"Create Topic"
               div
                 {} $ :style
-                  merge ui/column $ {}
-                    :border-right $ str "\"1px solid " (hsl 0 0 90)
-                    :height "\"100%"
+                  merge ui/expand ui/column $ {}
                 div
                   {} $ :style
-                    merge ui/row-parted $ {}
-                      :border-bottom $ str "\"1px solid " (hsl 0 0 90)
+                    merge ui/row-middle $ {}
+                      ; :border-bottom $ str "\"1px solid " (hsl 0 0 90)
                       :padding "\"4px 8px"
                   <> "\"Topics"
+                  =< 16 nil
                   a $ {} (:style ui/link) (:inner-text "\"New")
                     :on-click $ fn (e d!)
                       .show create-plugin d! $ fn (text) (d! :topic/add text)
                 div
                   {} $ :style ui/expand
-                  =< nil 20
                   list->
                     {} $ :style
                       {} $ :border-bottom
@@ -154,24 +173,28 @@
                         negate $ :time (last pair)
                       .map $ fn (pair)
                         [] (first pair)
-                          comp-message $ last pair
+                          comp-topic-item $ last pair
                   =< nil 100
                 .render create-plugin
-        |comp-message $ quote
-          defcomp comp-message (message)
+        |comp-topic-item $ quote
+          defcomp comp-topic-item (topic)
             div
               {} $ :style
                 {} (:padding 8)
                   :border-top $ str "\"1px solid " (hsl 0 0 88)
               div ({})
-                <> $ or (:content message) "\"-"
+                span $ {}
+                  :inner-text $ or (:content topic) "\"-"
+                  :on-click $ fn (e d!)
+                    d! :stack/add $ {} (:name :topic)
+                      :data $ :id topic
               div ({})
                 <>
-                  str "\"@" $ get-in message ([] :author :nickname)
+                  str "\"@" $ get-in topic ([] :author :nickname)
                   {} $ :color (hsl 0 0 50)
                 =< 8 nil
                 <>
-                  -> (:time message) (dayjs) (.format "\"HH:mm")
+                  -> (:time topic) (dayjs) (.format "\"HH:mm")
                   {}
                     :color $ hsl 0 0 70
                     :font-weight 300
@@ -179,10 +202,27 @@
         |comp-unknown-card $ quote
           defcomp comp-unknown-card (router)
             div
-              {} $ :width "\"400px"
+              {} $ :style
+                merge ui/column $ {} (:width 400) (:height "\"100%")
+                  :border-right $ str "\"1px solid " (hsl 0 0 90)
+              div ({}) (<> "\"Unknown card")
               pre ({})
                 code $ {}
                   :inner-text $ format-cirru-edn router
+        |comp-card-header $ quote
+          defcomp comp-card-header (name idx)
+            div
+              {} $ :style
+                merge ui/row-parted $ {}
+                  :border-bottom $ str "\"1px solid " (hsl 0 0 90)
+                  :padding "\"0 8px"
+              span $ {}
+              <> $ str name
+              span $ {} (:inner-text "\"✕")
+                :style $ {}
+                  :color $ hsl 0 80 70
+                  :cursor :pointer
+                :on-click $ fn (e d!) (d! :stack/close idx)
     |app.schema $ {}
       :ns $ quote (ns app.schema)
       :defs $ {}
@@ -194,11 +234,13 @@
               {} (:name :home) (:data nil) (:router nil)
             :messages $ {}
             :stack $ do stack ([])
+        |reply $ quote
+          def reply $ {} (:id nil) (:content "\"") (:author-id "\"") (:time nil)
         |stack $ quote
           def stack $ {} (:name nil) (:data nil)
         |topic $ quote
           def topic $ {} (:id nil) (:content "\"") (:time nil)
-            :child-ids $ #{}
+            :replies $ do reply ({})
             :author-id nil
         |database $ quote
           def database $ {}
@@ -342,13 +384,20 @@
                     -> (:stack session)
                       or $ []
                       map $ fn (router)
-                        case-default (:name router) ({})
-                          :topics $ {} (:name :topics)
-                            :data $ -> (:topics db)
-                              map-kv $ fn (k v)
-                                [] k $ assoc v :author
-                                  twig-user $ get-in db
-                                    [] :users $ :author-id v
+                        assoc router :data $ case-default (:name router)
+                          {} $ :original-data router
+                          :topic $ let
+                              topic $ get-in db
+                                [] :topics $ :data router
+                            if (some? topic)
+                              assoc topic :author $ twig-user
+                                get-in db $ [] :users (:author-id topic)
+                              , nil
+                          :topics $ -> (:topics db)
+                            map-kv $ fn (k v)
+                              [] k $ assoc v :author
+                                twig-user $ get-in db
+                                  [] :users $ :author-id v
                     []
                   :count $ count (:sessions db)
                   :color $ color/randomColor
@@ -576,10 +625,7 @@
                     :on-click $ fn (e d!)
                       d! :router/change $ {} (:name :home)
                     :style $ {} (:cursor :pointer)
-                  <> "\"Ployg" nil
-                =< nil 16
-                <> "\"Msg"
-                <> "\"Wiki"
+                  <> "\"Ploy" nil
               div
                 {}
                   :style $ merge ui/row

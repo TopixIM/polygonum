@@ -27,6 +27,26 @@ yarn vite # for browser app
 
 code with [calcit-editor](https://github.com/Cirru/calcit-editor).
 
+### Actions
+
+Add card:
+
+```cirru
+d! :stack/add $ {} (:name :topics) (:data topic-id)
+```
+
+Close card:
+
+```cirru
+d! :stack/close idx
+```
+
+Add topic:
+
+```cirru
+d! :topic/add "|some text"
+```
+
 ### License
 
 MIT
