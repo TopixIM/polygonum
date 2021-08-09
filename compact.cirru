@@ -9,7 +9,7 @@
         ns app.comp.container $ :require
           respo.util.format :refer $ hsl
           respo-ui.core :as ui
-          respo.core :refer $ defcomp <> >> div span button input textarea pre list-> a
+          respo.core :refer $ defcomp <> >> div span button input textarea pre list-> a pre code
           respo.comp.inspect :refer $ comp-inspect
           respo.comp.space :refer $ =<
           app.comp.navigation :refer $ comp-navigation
@@ -37,12 +37,12 @@
               if (nil? store) (comp-offline)
                 div
                   {} $ :style (merge ui/global ui/fullscreen ui/row)
-                  comp-navigation (:logged-in? store) (:count store)
                   if (:logged-in? store)
                     case-default (:name router) (<> router)
-                      :home $ comp-chat-space (>> states :chat) (:data router)
+                      :home $ comp-stack (>> states :stack) (:stack store)
                       :profile $ comp-profile (:user store) (:data router)
                     comp-login $ >> states :login
+                  comp-navigation (:logged-in? store) (:count store)
                   comp-status-color $ :color store
                   when dev? $ comp-inspect "\"Store" store
                     {} (:bottom 80) (:left 0) (:max-width "\"100%")
@@ -69,51 +69,94 @@
                 :style $ {} (:cursor :pointer) (:line-height "\"32px")
                 :on-click $ fn (e d!) (d! :effect/connect nil)
               <> "\"No connection..." $ {} (:font-family ui/font-fancy) (:font-size 24)
-        |comp-chat-space $ quote
-          defcomp comp-chat-space (states data)
-            let
-                cursor $ :cursor states
-                state $ or (:data states) ({})
-                create-plugin $ use-prompt (>> states :new)
-                  {} $ :title "\"Create Topic"
-              div
-                {} $ :style (merge ui/expand ui/row)
-                div
-                  {} $ :style
-                    merge ui/column $ {} (:width 400)
-                      :border-right $ str "\"1px solid " (hsl 0 0 90)
-                  div
-                    {} $ :style
-                      merge ui/row-parted $ {}
-                        :border-bottom $ str "\"1px solid " (hsl 0 0 90)
-                        :padding "\"4px 8px"
-                    <> "\"Topics"
-                    a $ {} (:style ui/link) (:inner-text "\"New")
-                      :on-click $ fn (e d!)
-                        .show create-plugin d! $ fn (text) (d! :message/add text)
-                  div
-                    {} $ :style ui/expand
-                    =< nil 20
-                    list->
+        |comp-stack $ quote
+          defcomp comp-stack (states stack)
+            list->
+              {} $ :style (merge ui/expand ui/row)
+              -> stack
+                map-indexed $ fn (idx router)
+                  [] idx $ case-default (:name router) (comp-unknown-card router)
+                    :topics $ div
                       {} $ :style
-                        {} $ :border-bottom
-                          str "\"1px solid " $ hsl 0 0 80
-                      -> data
-                        or $ {}
-                        .to-list
-                        .sort-by $ fn (pair)
-                          negate $ :time (last pair)
-                        .map $ fn (pair)
-                          [] (first pair)
-                            comp-message $ last pair
-                    =< nil 100
-                .render create-plugin
+                        {} $ :width 400
+                      comp-header idx
+                      comp-topics (>> states :chat) (:data router)
+                concat $ []
+                  [] 999 $ comp-start
+        |comp-start $ quote
+          defcomp comp-start () $ div
+            {} $ :style
+              {} $ :padding "\"16px 40px"
+            div ({}) (<> "\"TODO Start")
+            =< nil 16
+            div ({})
+              button $ {} (:style ui/button) (:inner-text "\"Open Chat")
+                :on-click $ fn (e d!)
+                  d! :stack/add $ {} (:name :topics)
+            div ({})
+              button $ {} (:style ui/button) (:inner-text "\"Open Threads")
+                :on-click $ fn (e d!) (println "\"TODO")
+            div ({})
+              button $ {} (:style ui/button) (:inner-text "\"Open Wiki")
+                :on-click $ fn (e d!) (println "\"TODO")
+            div ({})
+              button $ {} (:style ui/button) (:inner-text "\"Open Tags")
+                :on-click $ fn (e d!) (println "\"TODO")
+            div ({})
+              button $ {} (:style ui/button) (:inner-text "\"Open Vites")
+                :on-click $ fn (e d!) (println "\"TODO")
         |comp-status-color $ quote
           defcomp comp-status-color (color)
             div $ {}
               :style $ let
                   size 24
                 {} (:width size) (:height size) (:position :absolute) (:bottom 60) (:left 8) (:background-color color) (:border-radius "\"50%") (:opacity 0.6) (:pointer-events :none)
+        |comp-header $ quote
+          defcomp comp-header (idx)
+            div
+              {} $ :style ui/row-parted
+              span $ {}
+              <> "\"TODO"
+              span $ {} (:inner-text "\"Close")
+                :on-click $ fn (e d!) (d! :stack/close idx)
+        |comp-topics $ quote
+          defcomp comp-topics (states data)
+            let
+                cursor $ :cursor states
+                state $ or (:data states) ({})
+                create-plugin $ use-prompt (>> states :new)
+                  {} $ :title "\"Create Topic"
+              div
+                {} $ :style
+                  merge ui/column $ {}
+                    :border-right $ str "\"1px solid " (hsl 0 0 90)
+                    :height "\"100%"
+                div
+                  {} $ :style
+                    merge ui/row-parted $ {}
+                      :border-bottom $ str "\"1px solid " (hsl 0 0 90)
+                      :padding "\"4px 8px"
+                  <> "\"Topics"
+                  a $ {} (:style ui/link) (:inner-text "\"New")
+                    :on-click $ fn (e d!)
+                      .show create-plugin d! $ fn (text) (d! :topic/add text)
+                div
+                  {} $ :style ui/expand
+                  =< nil 20
+                  list->
+                    {} $ :style
+                      {} $ :border-bottom
+                        str "\"1px solid " $ hsl 0 0 80
+                    -> data
+                      or $ {}
+                      .to-list
+                      .sort-by $ fn (pair)
+                        negate $ :time (last pair)
+                      .map $ fn (pair)
+                        [] (first pair)
+                          comp-message $ last pair
+                  =< nil 100
+                .render create-plugin
         |comp-message $ quote
           defcomp comp-message (message)
             div
@@ -133,6 +176,13 @@
                     :color $ hsl 0 0 70
                     :font-weight 300
                     :font-family ui/font-fancy
+        |comp-unknown-card $ quote
+          defcomp comp-unknown-card (router)
+            div
+              {} $ :width "\"400px"
+              pre ({})
+                code $ {}
+                  :inner-text $ format-cirru-edn router
     |app.schema $ {}
       :ns $ quote (ns app.schema)
       :defs $ {}
@@ -143,19 +193,22 @@
             :router $ do router
               {} (:name :home) (:data nil) (:router nil)
             :messages $ {}
+            :stack $ do stack ([])
+        |stack $ quote
+          def stack $ {} (:name nil) (:data nil)
+        |topic $ quote
+          def topic $ {} (:id nil) (:content "\"") (:time nil)
+            :child-ids $ #{}
+            :author-id nil
         |database $ quote
           def database $ {}
             :sessions $ do session ({})
             :users $ do user ({})
-            :messages $ do message ({})
+            :topics $ do topic ({})
         |router $ quote
           def router $ {} (:name nil) (:title nil)
             :data $ {}
             :router nil
-        |message $ quote
-          def message $ {} (:id nil) (:content "\"") (:time nil)
-            :child-ids $ #{}
-            :author-id nil
     |app.server $ {}
       :ns $ quote
         ns app.server $ :require (app.schema :as schema)
@@ -284,6 +337,19 @@
                               [] :users $ :author-id v
                       :profile $ memof-call twig-members (:sessions db) (:users db)
                       (:name router) ({})
+                  :stack $ if
+                    = :home $ get router :name
+                    -> (:stack session)
+                      or $ []
+                      map $ fn (router)
+                        case-default (:name router) ({})
+                          :topics $ {} (:name :topics)
+                            :data $ -> (:topics db)
+                              map-kv $ fn (k v)
+                                [] k $ assoc v :author
+                                  twig-user $ get-in db
+                                    [] :users $ :author-id v
+                    []
                   :count $ count (:sessions db)
                   :color $ color/randomColor
                 , nil
@@ -296,7 +362,7 @@
               pairs-map
     |app.updater $ {}
       :ns $ quote
-        ns app.updater $ :require (app.updater.session :as session) (app.updater.user :as user) (app.updater.router :as router) (app.updater.message :as message) (app.schema :as schema)
+        ns app.updater $ :require (app.updater.session :as session) (app.updater.user :as user) (app.updater.router :as router) (app.updater.topic :as topic) (app.schema :as schema)
           respo-message.updater :refer $ update-messages
       :defs $ {}
         |updater $ quote
@@ -314,7 +380,9 @@
                   :user/sign-up user/sign-up
                   :user/log-out user/log-out
                   :router/change router/change
-                  :message/add message/add-message
+                  :stack/add router/add-stack
+                  :stack/close router/close-stack
+                  :topic/add topic/add-topic
               f db op-data sid op-id op-time
     |app.twig.user $ {}
       :ns $ quote
@@ -322,6 +390,16 @@
       :defs $ {}
         |twig-user $ quote
           defn twig-user (user) (dissoc user :password)
+    |app.updater.topic $ {}
+      :ns $ quote
+        ns app.updater.topic $ :require (app.schema :as schema)
+      :defs $ {}
+        |add-topic $ quote
+          defn add-topic (db op-data sid op-id op-time)
+            let
+                user-id $ get-in db ([] :sessions sid :user-id)
+              assoc-in db ([] :topics op-id)
+                merge schema/topic $ {} (:id op-id) (:time op-time) (:content op-data) (:author-id user-id)
     |app.updater.user $ {}
       :ns $ quote
         ns app.updater.user $ :require
@@ -475,16 +553,6 @@
               dispatch! (if signup? :user/sign-up :user/log-in) ([] username password)
               .setItem js/localStorage (:storage-key config/site)
                 format-cirru-edn $ [] username password
-    |app.updater.message $ {}
-      :ns $ quote
-        ns app.updater.message $ :require (app.schema :as schema)
-      :defs $ {}
-        |add-message $ quote
-          defn add-message (db op-data sid op-id op-time)
-            let
-                user-id $ get-in db ([] :sessions sid :user-id)
-              assoc-in db ([] :messages op-id)
-                merge schema/message $ {} (:id op-id) (:time op-time) (:content op-data) (:author-id user-id)
     |app.comp.navigation $ {}
       :ns $ quote
         ns app.comp.navigation $ :require
@@ -499,7 +567,7 @@
             div
               {} $ :style
                 merge ui/column-parted $ {} (:width 64) (:justify-content :space-between) (:padding "\"0 16px") (:font-size 16)
-                  :border-right $ str "\"1px solid " (hsl 0 0 0 0.1)
+                  :border-left $ str "\"1px solid " (hsl 0 0 0 0.1)
                   :font-family ui/font-fancy
               div
                 {} $ :style ui/column
@@ -524,6 +592,14 @@
     |app.updater.router $ {}
       :ns $ quote (ns app.updater.router)
       :defs $ {}
+        |close-stack $ quote
+          defn close-stack (db op-data sid op-id op-time)
+            update-in db ([] :sessions sid :stack)
+              fn (s) (dissoc s op-data)
+        |add-stack $ quote
+          defn add-stack (db op-data sid op-id op-time)
+            update-in db ([] :sessions sid :stack)
+              fn (s) (conj s op-data)
         |change $ quote
           defn change (db op-data sid op-id op-time)
             assoc-in db ([] :sessions sid :router) op-data
@@ -555,6 +631,9 @@
           recollect.patch :refer $ patch-twig
           cumulo-util.core :refer $ on-page-touch
           "\"url-parse" :default url-parse
+          "\"bottom-tip" :default tip!
+          "\"./calcit.build-errors" :default client-errors
+          "\"../js-out/calcit.build-errors" :default server-errors
       :defs $ {}
         |render-app! $ quote
           defn render-app! () $ render! mount-target
@@ -611,14 +690,17 @@
                 dispatch! :user/log-in $ parse-cirru-edn raw
               do $ println "\"Found no storage."
         |reload! $ quote
-          defn reload! () (remove-watch *store :changes) (remove-watch *states :changes) (clear-cache!) (render-app!)
-            add-watch *store :changes $ fn (store prev) (render-app!)
-            add-watch *states :changes $ fn (states prev) (render-app!)
-            println "\"Code updated."
+          defn reload! () $ if
+            or (some? client-errors) (some? server-errors)
+            tip! "\"error" $ str client-errors &newline server-errors
+            do (tip! "\"ok~" nil) (remove-watch *store :changes) (remove-watch *states :changes) (clear-cache!) (render-app!)
+              add-watch *store :changes $ fn (store prev) (render-app!)
+              add-watch *states :changes $ fn (states prev) (render-app!)
+              println "\"Code updated."
     |app.config $ {}
       :ns $ quote (ns app.config)
       :defs $ {}
         |dev? $ quote
           def dev? $ = "\"dev" (get-env "\"mode")
         |site $ quote
-          def site $ {} (:port 5021) (:title "\"Polygonum") (:icon "\"http://cdn.tiye.me/logo/cumulo.png") (:theme "\"#eeeeff") (:storage-key "\"workflow-storage-calcit") (:storage-file "\"storage.edn")
+          def site $ {} (:port 5021) (:title "\"Polygonum") (:icon "\"http://cdn.tiye.me/logo/cumulo.png") (:theme "\"#eeeeff") (:storage-key "\"polygonum") (:storage-file "\"storage.cirru")
