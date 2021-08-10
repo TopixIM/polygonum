@@ -47,6 +47,22 @@ Add topic:
 d! :topic/add "|some text"
 ```
 
+Add topic reply:
+
+```cirru
+d! :topic/reply $ {}
+  :topic-id |demo-id
+  :text |demo
+```
+
+Remove topic reply:
+
+```cirru
+d! :topic/remove-reply $ {}
+  :topic-id |demo-id
+  :id |demo-id
+```
+
 ### License
 
 MIT
