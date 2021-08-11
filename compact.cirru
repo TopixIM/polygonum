@@ -22,6 +22,7 @@
           app.config :as config
           "\"dayjs" :default dayjs
           respo-alerts.core :refer $ use-prompt
+          app.comp.widget :refer $ =-
       :defs $ {}
         |comp-container $ quote
           defcomp comp-container (states store)
@@ -42,6 +43,7 @@
                       :home $ comp-stack (>> states :stack) (:stack store)
                       :profile $ comp-profile (:user store) (:data router)
                     comp-login $ >> states :login
+                  =- :v
                   comp-navigation (:logged-in? store) (:count store)
                   comp-status-color $ :color store
                   when dev? $ comp-inspect "\"Store" store
@@ -112,28 +114,78 @@
                 :on-click $ fn (e d!) (println "\"TODO")
         |comp-topic $ quote
           defcomp comp-topic (states topic)
-            div
-              {} $ :style
-                {} (:padding 8)
-                  :border-top $ str "\"1px solid " (hsl 0 0 88)
-              div ({})
-                span $ {}
-                  :inner-text $ or (:content topic) "\"-"
+            let
+                cursor $ :cursor states
+                state $ or (:data states)
+                  {} $ :draft "\""
               div
                 {} $ :style
-                  {} $ :border-bottom
-                    str "\"1px solid " $ hsl 0 0 90
-                <>
-                  str "\"@" $ get-in topic ([] :author :nickname)
-                  {} $ :color (hsl 0 0 50)
-                =< 8 nil
-                <>
-                  -> (:time topic) (dayjs) (.format "\"HH:mm")
-                  {}
-                    :color $ hsl 0 0 70
-                    :font-weight 300
-                    :font-family ui/font-fancy
-              div ({}) (<> "\"TODO replies")
+                  merge ui/expand ui/column $ {}
+                    :border-top $ str "\"1px solid " (hsl 0 0 88)
+                div
+                  {} $ :style
+                    {} $ :padding 8
+                  span $ {}
+                    :inner-text $ or (:content topic) "\"-"
+                div
+                  {} $ :style
+                    {} (:padding 8)
+                      :border-bottom $ str "\"1px solid " (hsl 0 0 90)
+                  <>
+                    str "\"@" $ get-in topic ([] :author :nickname)
+                    {} $ :color (hsl 0 0 50)
+                  =< 8 nil
+                  <>
+                    -> (:time topic) (dayjs) (.!format "\"HH:mm")
+                    {}
+                      :color $ hsl 0 0 70
+                      :font-weight 300
+                      :font-family ui/font-fancy
+                div
+                  {} $ :style
+                    merge ui/expand $ {}
+                  list-> ({})
+                    -> (:replies topic) (.to-list)
+                      .sort-by $ fn (x)
+                        :time $ nth x 1
+                      map $ fn (pair)
+                        &let
+                          reply $ nth pair 1
+                          [] (nth pair 0)
+                            div
+                              {} $ :style
+                                {} (:padding "\"8px")
+                                  :border-bottom $ str "\"1px solid " (hsl 0 0 90)
+                              div ({})
+                                <> $ str "\"@"
+                                  get-in reply $ [] :author :nickname
+                                =< 8 nil
+                                <> $ -> (:time reply) (dayjs) (.!format "\"HH:mm")
+                              div ({})
+                                <> $ :content (w-log reply)
+                  =< nil 80
+                div
+                  {} $ :style
+                    merge ui/row $ {}
+                      :border-top $ str "\"1px solid " (hsl 0 0 90)
+                  textarea $ {}
+                    :style $ merge ui/expand ui/textarea
+                    :value $ :draft state
+                    :placeholder "\"Reply..."
+                    :on-change $ fn (e d!)
+                      d! cursor $ assoc state :draft (:value e)
+                  =< 8 nil
+                  div ({})
+                    button $ {} (:inner-text "\"Send") (:style ui/button)
+                      :on-click $ fn (e d!)
+                        let
+                            content $ .trim (:draft state)
+                          when
+                            not $ .blank? content
+                            d! :topic/reply $ {}
+                              :topic-id $ :id topic
+                              :text content
+                            d! cursor $ assoc state :draft "\""
         |comp-status-color $ quote
           defcomp comp-status-color (color)
             div $ {}
@@ -352,6 +404,21 @@
             js/clearTimeout @*loop-trigger
             render-loop! *loop-trigger
             sync-clients! @*reader-reel
+    |app.comp.widget $ {}
+      :ns $ quote
+        ns app.comp.widget $ :require
+          respo-ui.core :refer $ hsl
+          respo.core :refer $ defcomp <> >> div span button input textarea
+      :defs $ {}
+        |=- $ quote
+          defn =- (direction ? style)
+            div $ {}
+              :style $ merge
+                {} $ :background-color (hsl 0 0 88)
+                if (= direction :v)
+                  {} (:width 1) (:height "\"100%")
+                  {} (:height 1) (:width "\"100%")
+                , style
     |app.twig.container $ {}
       :ns $ quote
         ns app.twig.container $ :require
@@ -390,8 +457,14 @@
                               topic $ get-in db
                                 [] :topics $ :data router
                             if (some? topic)
-                              assoc topic :author $ twig-user
-                                get-in db $ [] :users (:author-id topic)
+                              -> topic
+                                assoc :author $ twig-user
+                                  get-in db $ [] :users (:author-id topic)
+                                update :replies $ fn (replies)
+                                  map-kv replies $ fn (k v)
+                                    [] k $ assoc v :author
+                                      twig-user $ get-in db
+                                        [] :users $ :author-id v
                               , nil
                           :topics $ -> (:topics db)
                             map-kv $ fn (k v)
@@ -432,6 +505,7 @@
                   :stack/add router/add-stack
                   :stack/close router/close-stack
                   :topic/add topic/add-topic
+                  :topic/reply topic/add-reply
               f db op-data sid op-id op-time
     |app.twig.user $ {}
       :ns $ quote
@@ -443,6 +517,15 @@
       :ns $ quote
         ns app.updater.topic $ :require (app.schema :as schema)
       :defs $ {}
+        |add-reply $ quote
+          defn add-reply (db op-data sid op-id op-time)
+            let
+                user-id $ get-in db ([] :sessions sid :user-id)
+              assoc-in db
+                [] :topics (:topic-id op-data) :replies op-id
+                merge schema/reply $ {} (:id op-id) (:time op-time)
+                  :content $ :text op-data
+                  :author-id user-id
         |add-topic $ quote
           defn add-topic (db op-data sid op-id op-time)
             let
@@ -615,9 +698,7 @@
           defcomp comp-navigation (logged-in? count-members)
             div
               {} $ :style
-                merge ui/column-parted $ {} (:width 64) (:justify-content :space-between) (:padding "\"0 16px") (:font-size 16)
-                  :border-left $ str "\"1px solid " (hsl 0 0 0 0.1)
-                  :font-family ui/font-fancy
+                merge ui/column-parted $ {} (:width 64) (:justify-content :space-between) (:padding "\"0 16px") (:font-size 16) (:font-family ui/font-fancy)
               div
                 {} $ :style ui/column
                 div
