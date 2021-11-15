@@ -12,17 +12,11 @@ Notice that you need to clone dependencies into `.config/calcit/modules/` manual
 
 ```bash
 yarn
-
-yarn watch-server # watch compile server code
-
 yarn watch-page # watch compile page code
 
-yarn dev-server # watching compiling js code
-node js-out/bundle.js
-
-mode=dev node js-out/bundle.js # use mode to control behaviors for development
-
 yarn vite # for browser app
+
+mode=dev cr --entry server # for starting server
 ```
 
 code with [calcit-editor](https://github.com/Cirru/calcit-editor).
@@ -62,6 +56,10 @@ d! :topic/remove-reply $ {}
   :topic-id |demo-id
   :id |demo-id
 ```
+
+### Workflow
+
+https://github.com/Cumulo/calcium-workflow.calcit
 
 ### License
 
