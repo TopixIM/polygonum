@@ -26,9 +26,15 @@
         'connect! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn connect! () $ let
-                url-obj $ url-parse js/location.href true
-                host $ either (-> url-obj .-query .-host) js/location.hostname
-                port $ either (-> url-obj .-query .-port) (:port config/site)
+                location $ unsafe-coerce js/location JsObject
+                url-obj $ unsafe-coerce
+                  url-parse (.-href location) true
+                  , JsObject
+                query $ unsafe-coerce (.-query url-obj) JsObject
+                raw-host $ .-host query
+                raw-port $ .-port query
+                host $ if (js-present? raw-host) (unsafe-coerce raw-host String) (.-hostname location)
+                port $ if (js-present? raw-port) (unsafe-coerce raw-port String) (&map:get config/site :port)
               ws-connect! (str |ws:// host |: port)
                 {}
                   :on-open $ fn (event) (simulate-login!)
@@ -44,7 +50,8 @@
                 println |Dispatch op op-data
               case-default op
                 ws-send! $ {} (:kind :op) (:op op) (:data op-data)
-                :states $ reset! *states (update-states @*states op-data)
+                :states $ let[] (cursor s) op-data
+                  reset! *states $ update-states @*states cursor s
                 :effect/connect $ connect!
           :examples $ []
           :schema $ :: 'Dynamic
@@ -69,9 +76,9 @@
         'on-server-data $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn on-server-data (data)
-              case-default (:kind data) (println "|unknown server data kind:" data)
+              case-default (&map:get data :kind) (println "|unknown server data kind:" data)
                 :patch $ let
-                    changes $ :data data
+                    changes $ &map:get data :data
                   when config/dev? $ js/console.log |Changes (to-js-data changes)
                   reset! *store $ patch-twig @*store changes
           :examples $ []
@@ -90,17 +97,17 @@
         'render-app! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn render-app! () $ render! mount-target
-              comp-container (:states @*states) @*store
+              comp-container (&map:get @*states :states) @*store
               , dispatch!
           :examples $ []
           :schema $ :: 'Dynamic
         'simulate-login! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn simulate-login! () $ let
-                raw $ .!getItem js/localStorage (:storage-key config/site)
-              if (some? raw)
+                raw $ js/localStorage.getItem (&map:get config/site :storage-key)
+              if (js-present? raw)
                 do (println "|Found storage.")
-                  dispatch! :user/log-in $ parse-cirru-edn raw
+                  dispatch! :user/log-in $ parse-cirru-edn (unsafe-coerce raw String)
                 do $ println "|Found no storage."
           :examples $ []
           :schema $ :: 'Dynamic
@@ -141,32 +148,44 @@
           :code $ quote
             defcomp comp-container (states store)
               let
-                  state $ either (:data states)
+                  states-map $ unsafe-coerce states 'Map
+                  store-map $ unsafe-coerce (or store {}) 'Map
+                  state $ option:unwrap-or (&map:get states-map :data)
                     {} $ :demo |
-                  session $ :session
-                    either store $ {}
-                  router $ either
-                    :router $ either store ({})
-                    {}
-                  router-data $ :data router
+                  session $ unsafe-coerce
+                    option:unwrap-or (&map:get store-map :session) ({})
+                    , 'Map
+                  router $ unsafe-coerce
+                    option:unwrap-or (&map:get session :router) ({})
+                    , 'Map
+                  router-data $ option:unwrap-or (&map:get router :data) ({})
                 if (nil? store) (comp-offline)
                   div
                     {} $ :style (merge ui/global ui/fullscreen ui/row)
-                    if (:logged-in? store)
-                      case-default (:name router) (<> router)
-                        :home $ comp-stack (>> states :stack) (:stack store)
-                        :profile $ comp-profile (:user store) (:data router)
+                    if
+                      option:unwrap-or (&map:get store-map :logged-in?) false
+                      case-default (&map:get router :name)
+                        <> $ format-cirru-edn router
+                        :home $ comp-stack (>> states :stack)
+                          option:unwrap-or (&map:get store-map :stack) ([])
+                        :profile $ comp-profile (&map:get store-map :user) router-data
                       comp-login $ >> states :login
                     =- :v
-                    comp-navigation (:logged-in? store) (:count store)
-                    comp-status-color $ :color store
+                    comp-navigation
+                      option:unwrap-or (&map:get store-map :logged-in?) false
+                      option:unwrap-or (&map:get store-map :count) 0
+                    comp-status-color $ option:unwrap-or (&map:get store-map :color) |transparent
                     when dev? $ comp-inspect |Store store
                       {} (:bottom 80) (:left 0) (:max-width |100%)
                     comp-messages
-                      get-in store $ [] :session :messages
+                      option:unwrap-or
+                        get-in store-map $ [] :session :messages
+                        {}
                       {}
                       fn (info d!) (d! :session/remove-message info)
-                    when dev? $ comp-reel (:reel-length store) ({})
+                    when dev? $ comp-reel
+                      option:unwrap-or (&map:get store-map :reel-length) 0
+                      {}
           :examples $ []
           :schema $ :: 'Dynamic
         'comp-offline $ %{} 'CodeEntry (:doc |)
@@ -174,7 +193,7 @@
             defcomp comp-offline () $ div
               {} $ :style
                 merge ui/global ui/fullscreen ui/column-dispersive $ {}
-                  :background-color $ :theme config/site
+                  :background-color $ &map:get config/site :theme
               div $ {}
                 :style $ {} (:height 0)
               div $ {}
@@ -197,17 +216,22 @@
                 {} $ :style (merge ui/expand ui/row)
                 -> stack
                   map-indexed $ fn (idx router)
-                    [] idx $ div
-                      {} $ :style
-                        merge ui/column $ {} (:width 400) (:height |100%)
-                          :border-right $ str "|1px solid " (hsl 0 0 90)
-                      comp-card-header (:name router) idx
-                      case-default (:name router) (comp-unknown-card router)
-                        :topics $ comp-topics (>> states :chat) (:data router)
-                        :topic $ comp-topic
-                          >> states $ str :topic
-                            get-in router $ [] :data :id
-                          :data router
+                    let
+                        router-map $ unsafe-coerce router 'Map
+                        router-data $ option:unwrap-or (&map:get router-map :data) ({})
+                      [] idx $ div
+                        {} $ :style
+                          merge ui/column $ {} (:width 400) (:height |100%)
+                            :border-right $ str "|1px solid " (hsl 0 0 90)
+                        comp-card-header (&map:get router-map :name) idx
+                        case-default (&map:get router-map :name) (comp-unknown-card router)
+                          :topics $ comp-topics (>> states :chat) router-data
+                          :topic $ comp-topic
+                            >> states $ str :topic
+                              option:unwrap-or
+                                get-in router-map $ [] :data :id
+                                , |
+                            , router-data
                   concat $ []
                     [] 999 $ comp-start
           :examples $ []
@@ -250,9 +274,12 @@
           :code $ quote
             defcomp comp-topic (states topic)
               let
-                  cursor $ :cursor states
-                  state $ or (:data states)
+                  states-map $ unsafe-coerce states 'Map
+                  topic-map $ unsafe-coerce topic 'Map
+                  cursor $ option:unwrap-or (&map:get states-map :cursor) ([])
+                  state $ option:unwrap-or (&map:get states-map :data)
                     {} $ :draft |
+                  state-map $ unsafe-coerce state 'Map
                 div
                   {} $ :style
                     merge ui/expand ui/column $ {}
@@ -261,17 +288,21 @@
                     {} $ :style
                       {} $ :padding 8
                     span $ {}
-                      :inner-text $ or (:content topic) |-
+                      :inner-text $ option:unwrap-or (&map:get topic-map :content) |-
                   div
                     {} $ :style
                       {} (:padding 8)
                         :border-bottom $ str "|1px solid " (hsl 0 0 90)
                     <>
-                      str |@ $ get-in topic ([] :author :nickname)
+                      str |@ $ option:unwrap-or
+                        get-in topic-map $ [] :author :nickname
+                        , |
                       {} $ :color (hsl 0 0 50)
                     =< 8 nil
                     <>
-                      -> (:time topic) (dayjs) (.!format |HH:mm)
+                      unsafe-coerce
+                        -> (&map:get topic-map :time) (dayjs) (.!format |HH:mm)
+                        , String
                       {}
                         :color $ hsl 0 0 70
                         :font-weight 300
@@ -281,25 +312,29 @@
                       merge ui/expand $ {}
                     list-> ({})
                       ->
-                        option:unwrap-or (get topic :replies) ({})
+                        option:unwrap-or (&map:get topic-map :replies) ({})
                         .to-list
-                        .sort-by $ fn (x)
-                          :time $ nth x 1
+                        .sort-by $ fn (pair)
+                          let[] (_ reply) pair $ &map:get (unsafe-coerce reply 'Map) :time
                         map $ fn (pair)
-                          &let
-                            reply $ nth pair 1
-                            [] (nth pair 0)
-                              div
-                                {} $ :style
-                                  {} (:padding |8px)
-                                    :border-bottom $ str "|1px solid " (hsl 0 0 90)
-                                div ({})
-                                  <> $ str |@
-                                    get-in reply $ [] :author :nickname
-                                  =< 8 nil
-                                  <> $ -> (:time reply) (dayjs) (.!format |HH:mm)
-                                div ({})
-                                  <> $ :content (wo-log reply)
+                          let[] (k reply) pair $ let
+                              reply-map $ unsafe-coerce reply 'Map
+                            [] k
+                            div
+                              {} $ :style
+                                {} (:padding |8px)
+                                  :border-bottom $ str "|1px solid " (hsl 0 0 90)
+                              div ({})
+                                <> $ str |@
+                                  option:unwrap-or
+                                    get-in reply-map $ [] :author :nickname
+                                    , |
+                                =< 8 nil
+                                <> $ unsafe-coerce
+                                  -> (&map:get reply-map :time) (dayjs) (.!format |HH:mm)
+                                  , String
+                              div ({})
+                                <> $ option:unwrap-or (&map:get reply-map :content) |
                     =< nil 80
                   div
                     {} $ :style
@@ -307,10 +342,11 @@
                         :border-top $ str "|1px solid " (hsl 0 0 90)
                     textarea $ {}
                       :style $ merge ui/expand ui/textarea
-                      :value $ :draft state
+                      :value $ option:unwrap-or (&map:get state-map :draft) |
                       :placeholder |Reply...
                       :on-change $ fn (e d!)
-                        d! cursor $ assoc state :draft (:value e)
+                        d! cursor $ assoc state :draft
+                          option:unwrap-or (get e :value) |
                     =< 8 nil
                     div ({})
                       button $ {} (:inner-text |Send) (:style ui/button)
@@ -321,7 +357,7 @@
                             when
                               not $ .blank? content
                               d! :topic/reply $ {}
-                                :topic-id $ :id topic
+                                :topic-id $ &map:get topic-map :id
                                 :text content
                               d! cursor $ assoc state :draft |
           :examples $ []
@@ -329,35 +365,42 @@
         'comp-topic-item $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defcomp comp-topic-item (topic)
-              div
-                {} $ :style
-                  {} (:padding 8)
-                    :border-top $ str "|1px solid " (hsl 0 0 88)
-                div ({})
-                  span $ {}
-                    :inner-text $ or (:content topic) |-
-                    :on-click $ fn (e d!)
-                      d! :stack/add $ {} (:name :topic)
-                        :data $ :id topic
-                div ({})
-                  <>
-                    str |@ $ get-in topic ([] :author :nickname)
-                    {} $ :color (hsl 0 0 50)
-                  =< 8 nil
-                  <>
-                    -> (:time topic) (dayjs) (.format |HH:mm)
-                    {}
-                      :color $ hsl 0 0 70
-                      :font-weight 300
-                      :font-family ui/font-fancy
+              let
+                  topic-map $ unsafe-coerce topic 'Map
+                div
+                  {} $ :style
+                    {} (:padding 8)
+                      :border-top $ str "|1px solid " (hsl 0 0 88)
+                  div ({})
+                    span $ {}
+                      :inner-text $ option:unwrap-or (&map:get topic-map :content) |-
+                      :on-click $ fn (e d!)
+                        d! :stack/add $ {} (:name :topic)
+                          :data $ &map:get topic-map :id
+                  div ({})
+                    <>
+                      str |@ $ option:unwrap-or
+                        get-in topic-map $ [] :author :nickname
+                        , |
+                      {} $ :color (hsl 0 0 50)
+                    =< 8 nil
+                    <>
+                      unsafe-coerce
+                        -> (&map:get topic-map :time) (dayjs) (.!format |HH:mm)
+                        , String
+                      {}
+                        :color $ hsl 0 0 70
+                        :font-weight 300
+                        :font-family ui/font-fancy
           :examples $ []
           :schema $ :: 'Dynamic
         'comp-topics $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defcomp comp-topics (states data)
               let
-                  cursor $ :cursor states
-                  state $ or (:data states) ({})
+                  states-map $ unsafe-coerce states 'Map
+                  cursor $ option:unwrap-or (&map:get states-map :cursor) ([])
+                  state $ option:unwrap-or (&map:get states-map :data) ({})
                   create-plugin $ use-prompt (>> states :new)
                     {} $ :title "|Create Topic"
                 div
@@ -365,9 +408,11 @@
                     merge ui/expand ui/column $ {}
                   div
                     {} $ :style
-                      merge ui/row-middle $ {}
-                        ; :border-bottom $ str "|1px solid " (hsl 0 0 90)
-                        :padding "|4px 8px"
+                      merge
+                        unsafe-coerce ui/row-middle $ :: 'Map 'Tag 'Dynamic
+                        unsafe-coerce
+                          {} $ :padding "|4px 8px"
+                          :: 'Map 'Tag 'Dynamic
                     <> |Topics
                     =< 16 nil
                     a $ {} (:style ui/link) (:inner-text |New)
@@ -383,10 +428,12 @@
                         or $ {}
                         .to-list
                         .sort-by $ fn (pair)
-                          negate $ :time (last pair)
+                          let[] (_ topic) pair $ negate
+                            option:unwrap-or
+                              &map:get (unsafe-coerce topic 'Map) :time
+                              , 0
                         .map $ fn (pair)
-                          [] (first pair)
-                            comp-topic-item $ last pair
+                          let[] (k topic) pair $ [] k (comp-topic-item topic)
                     =< nil 100
                   .render create-plugin
           :examples $ []
@@ -429,37 +476,50 @@
           :code $ quote
             defcomp comp-login (states)
               let
-                  cursor $ :cursor states
-                  state $ or (:data states) initial-state
+                  states-map $ unsafe-coerce states 'Map
+                  cursor $ option:unwrap-or (&map:get states-map :cursor) ([])
+                  state $ option:unwrap-or (&map:get states-map :data) initial-state
+                  state-map $ unsafe-coerce state 'Map
                 div
-                  {} $ :style (merge ui/flex ui/center)
+                  {} $ :style
+                    merge
+                      unsafe-coerce ui/flex $ :: 'Map 'Tag 'Dynamic
+                      unsafe-coerce ui/center $ :: 'Map 'Tag 'Dynamic
                   div ({})
                     div
                       {} $ :style ({})
                       div ({})
                         input $ {} (:placeholder |Username)
-                          :value $ :username state
+                          :value $ option:unwrap-or (&map:get state-map :username) |
                           :style ui/input
                           :on-input $ fn (e d!)
-                            d! cursor $ assoc state :username (:value e)
+                            d! cursor $ assoc state :username
+                              option:unwrap-or (get e :value) |
                       =< nil 8
                       div ({})
                         input $ {} (:placeholder |Password)
-                          :value $ :password state
+                          :value $ option:unwrap-or (&map:get state-map :password) |
                           :style ui/input
                           :on-input $ fn (e d!)
-                            d! cursor $ assoc state :password (:value e)
+                            d! cursor $ assoc state :password
+                              option:unwrap-or (get e :value) |
                     =< nil 8
                     div
                       {} $ :style
                         {} $ :text-align :right
                       span $ {} (:inner-text "|Sign up")
                         :style $ merge ui/link
-                        :on-click $ on-submit (:username state) (:password state) true
+                        :on-click $ on-submit
+                          option:unwrap-or (&map:get state-map :username) |
+                          option:unwrap-or (&map:get state-map :password) |
+                          , true
                       =< 8 nil
                       span $ {} (:inner-text "|Log in")
                         :style $ merge ui/link
-                        :on-click $ on-submit (:username state) (:password state) false
+                        :on-click $ on-submit
+                          option:unwrap-or (&map:get state-map :username) |
+                          option:unwrap-or (&map:get state-map :password) |
+                          , false
           :examples $ []
           :schema $ :: 'Dynamic
         'initial-state $ %{} 'CodeEntry (:doc |)
@@ -472,7 +532,7 @@
             defn on-submit (username password signup?)
               fn (e dispatch!)
                 dispatch! (if signup? :user/sign-up :user/log-in) ([] username password)
-                .setItem js/localStorage (:storage-key config/site)
+                .setItem js/localStorage (&map:get config/site :storage-key)
                   format-cirru-edn $ [] username password
           :examples $ []
           :schema $ :: 'Dynamic
@@ -525,13 +585,16 @@
         'comp-profile $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defcomp comp-profile (user members)
-              div
-                {} $ :style
-                  merge ui/flex $ {} (:padding 16)
+              let
+                  user-map $ unsafe-coerce user 'Map
+                div $ {}
+                  :style $ merge ui/flex
+                    {} $ :padding 16
                 div
                   {} $ :style
                     {} (:font-family ui/font-fancy) (:font-size 32) (:font-weight 100)
-                  <> $ str "|Hello! " (:name user)
+                  <> $ str "|Hello! "
+                    option:unwrap-or (&map:get user-map :name) |
                 =< nil 16
                 div
                   {} $ :style ui/row
@@ -563,7 +626,7 @@
                       :style $ merge ui/button
                         {} (:color :red) (:border-color :red)
                       :on-click $ fn (e dispatch!) (dispatch! :user/log-out nil)
-                        .removeItem js/localStorage $ :storage-key config/site
+                        .removeItem js/localStorage $ &map:get config/site :storage-key
                     <> "|Log out"
           :examples $ []
           :schema $ :: 'Dynamic
@@ -599,7 +662,8 @@
       :defs $ {}
         'dev? $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            def dev? $ = |dev (get-env |mode)
+            def dev? $ = |dev
+              option:unwrap-or (get-env |mode) |
           :examples $ []
           :schema $ :: 'Dynamic
         'site $ %{} 'CodeEntry (:doc |)
@@ -685,8 +749,7 @@
           :schema $ :: 'Dynamic
         '*reel $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            defatom *reel $ merge reel-schema
-              {} (:base @*initial-db) (:db @*initial-db)
+            defatom *reel $ struct-with reel-schema (:base @*initial-db) (:db @*initial-db)
           :examples $ []
           :schema $ :: 'Dynamic
         'dispatch! $ %{} 'CodeEntry (:doc |)
@@ -694,10 +757,10 @@
             defn dispatch! (op op-data sid)
               let
                   op-id $ generate-id!
-                  op-time $ str (get-time!)
+                  op-time $ -> (get-time!) (.timestamp)
                 if config/dev? $ println |Dispatch! (str op) op-data sid
                 if (= op :effect/persist) (persist-db!)
-                  reset! *reel $ reel-reducer @*reel updater op op-data sid op-id op-time config/dev?
+                  reset! *reel $ reel-reducer @*reel updater (:: op op-data) sid op-id op-time config/dev?
           :examples $ []
           :schema $ :: 'Dynamic
         'get-backup-path! $ %{} 'CodeEntry (:doc |)
@@ -705,8 +768,8 @@
             defn get-backup-path! () $ let
                 now $ extract-time (get-time!)
               join-path calcit-dirname |backups
-                str $ :month now
-                str (:day now) |-snapshot.cirru
+                str $ &map:get now :month
+                str (&map:get now :day) |-snapshot.cirru
           :examples $ []
           :schema $ :: 'Dynamic
         'main! $ %{} 'CodeEntry (:doc |)
@@ -714,8 +777,9 @@
             defn main! ()
               println "|Running mode:" $ if config/dev? |dev |release
               let
-                  p? $ get-env |port
-                  port $ if (some? p?) (js/parseInt p?) (:port config/site)
+                  port $ option:unwrap-or
+                    option:map (get-env |port) parse-float
+                    &map:get config/site :port
                 run-server! port
                 println $ str "|Server started on port:" port
               do (; "|init it before doing multi-threading") (identity @*reader-reel)
@@ -784,11 +848,12 @@
           :schema $ :: 'Dynamic
         'sync-clients! $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            defn sync-clients! (reel)
+            defn sync-clients! (reel) (begin-twig-frame!)
               wss-each! $ fn (sid)
                 let
-                    db $ :db reel
-                    records $ :records reel
+                    reel-state $ unsafe-coerce reel 'cumulo-reel.core/ReelState
+                    db $ :db reel-state
+                    records $ :records reel-state
                     session $ get-in db ([] :sessions sid)
                     old-store $ or (get @*client-caches sid) nil
                     new-store $ twig-container db session records
@@ -801,7 +866,7 @@
                       wss-send! sid $ format-cirru-edn
                         {} (:kind :patch) (:data changes)
                       swap! *client-caches assoc sid new-store
-              new-twig-loop!
+              finish-twig-frame!
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
@@ -812,7 +877,8 @@
             app.config :as config
             app.twig.container :refer $ twig-container
             recollect.diff :refer $ diff-twig
-            recollect.twig :refer $ new-twig-loop! clear-twig-caches!
+            recollect.twig :refer $ clear-twig-caches!
+            recollect.memo :refer $ begin-twig-frame! finish-twig-frame!
             wss.core :refer $ wss-serve! wss-send! wss-each!
             app.$meta :refer $ calcit-dirname
             calcit.std.fs :refer $ path-exists? check-write-file!
@@ -825,52 +891,83 @@
           :code $ quote
             defn twig-container (db session records)
               let
-                  logged-in? $ some? (:user-id session)
-                  router $ :router session
-                  base-data $ {} (:logged-in? logged-in?) (:session session)
+                  db-map $ unsafe-coerce db 'Map
+                  session-map $ unsafe-coerce
+                    option:unwrap-or session $ {}
+                    , 'Map
+                  user-id $ &map:get session-map :user-id
+                  logged-in? $ some? user-id
+                  router $ unsafe-coerce
+                    option:unwrap-or (&map:get session-map :router) ({})
+                    , 'Map
+                  base-data $ {} (:logged-in? logged-in?) (:session session-map)
                     :reel-length $ count records
                 merge base-data $ if logged-in?
-                  {}
-                    :user $ twig-user
-                      get-in db $ [] :users (:user-id session)
-                    :router $ assoc router :data
-                      case (:name router)
-                        :home $ -> (:messages db) (.to-map)
-                          map-kv $ fn (k v)
-                            [] k $ assoc v :author
-                              twig-user $ get-in db
-                                [] :users $ :author-id v
-                        :profile $ twig-members (:sessions db) (:users db)
-                        (:name router) ({})
-                    :stack $ if
-                      = :home $ get router :name
-                      -> (:stack session)
-                        or $ []
-                        map $ fn (router)
-                          assoc router :data $ case-default (:name router)
-                            {} $ :original-data router
-                            :topic $ let
-                                topic $ get-in db
-                                  [] :topics $ :data router
-                              if (some? topic)
-                                -> topic
-                                  assoc :author $ twig-user
-                                    get-in db $ [] :users (:author-id topic)
-                                  update :replies $ fn (replies)
-                                    -> replies (.to-map)
-                                      map-kv $ fn (k v)
-                                        [] k $ assoc v :author
-                                          twig-user $ get-in db
-                                            [] :users $ :author-id v
-                                , nil
-                            :topics $ -> (:topics db) (.to-map)
-                              map-kv $ fn (k v)
-                                [] k $ assoc v :author
-                                  twig-user $ get-in db
-                                    [] :users $ :author-id v
-                      []
-                    :count $ count (:sessions db)
-                    :color $ rand-hex-color!
+                  let
+                      user $ unsafe-coerce
+                        option:unwrap-or
+                          get-in db-map $ [] :users user-id
+                          {}
+                        , 'Map
+                    {}
+                      :user $ twig-user user
+                      :router $ assoc router :data
+                        case-default (&map:get router :name) ({})
+                          :home $ ->
+                            option:unwrap-or (&map:get db-map :messages) ({})
+                            .to-map
+                            map-kv $ fn (k v)
+                              let
+                                  value-map $ unsafe-coerce v 'Map
+                                [] k $ assoc value-map :author
+                                  twig-user $ option:unwrap-or
+                                    get-in db-map $ [] :users (&map:get value-map :author-id)
+                                    {}
+                          :profile $ twig-members
+                            option:unwrap-or (&map:get db-map :sessions) ({})
+                            option:unwrap-or (&map:get db-map :users) ({})
+                      :stack $ if
+                        = :home $ &map:get router :name
+                        ->
+                          option:unwrap-or (&map:get session-map :stack) ([])
+                          map $ fn (stack-router)
+                            let
+                                router-map $ unsafe-coerce stack-router 'Map
+                              assoc router-map :data $ case-default (&map:get router-map :name)
+                                {} $ :original-data router-map
+                                :topic $ if-let
+                                  topic $ get-in db-map
+                                    [] :topics $ &map:get router-map :data
+                                  let
+                                      topic-map $ unsafe-coerce topic 'Map
+                                    -> topic-map
+                                      assoc :author $ twig-user
+                                        option:unwrap-or
+                                          get-in db-map $ [] :users (&map:get topic-map :author-id)
+                                          {}
+                                      update :replies $ fn (replies)
+                                        -> replies (.to-map)
+                                          map-kv $ fn (k v)
+                                            let
+                                                value-map $ unsafe-coerce v 'Map
+                                              [] k $ assoc value-map :author
+                                                twig-user $ option:unwrap-or
+                                                  get-in db-map $ [] :users (&map:get value-map :author-id)
+                                                  {}
+                                  , nil
+                                :topics $ ->
+                                  option:unwrap-or (&map:get db-map :topics) ({})
+                                  .to-map
+                                  map-kv $ fn (k v)
+                                    let
+                                        value-map $ unsafe-coerce v 'Map
+                                      [] k $ assoc value-map :author
+                                        twig-user $ option:unwrap-or
+                                          get-in db-map $ [] :users (&map:get value-map :author-id)
+                                          {}
+                        []
+                      :count $ count (&map:get db-map :sessions)
+                      :color $ rand-hex-color!
                   {}
           :examples $ []
           :schema $ :: 'Dynamic
@@ -880,7 +977,11 @@
               -> sessions (.to-list)
                 map $ fn (pair)
                   let[] (k session) pair $ [] k
-                    get-in users $ [] (:user-id session) :name
+                    option:unwrap-or
+                      get-in users $ []
+                        &map:get (unsafe-coerce session 'Map) :user-id
+                        , :name
+                      , nil
                 pairs-map
           :examples $ []
           :schema $ :: 'Dynamic
@@ -903,25 +1004,20 @@
       :defs $ {}
         'updater $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            defn updater (db op op-data sid op-id op-time)
-              let
-                  session $ get-in db ([] :sessions sid)
-                  user $ if (some? session)
-                    get-in db $ [] :users (:user-id session)
-                  f $ case-default op
-                    fn (& args) (println "|Unknown op:" op) db
-                    :session/connect session/connect
-                    :session/disconnect session/disconnect
-                    :session/remove-message session/remove-message
-                    :user/log-in user/log-in
-                    :user/sign-up user/sign-up
-                    :user/log-out user/log-out
-                    :router/change router/change
-                    :stack/add router/add-stack
-                    :stack/close router/close-stack
-                    :topic/add topic/add-topic
-                    :topic/reply topic/add-reply
-                f db op-data sid op-id op-time
+            defn updater (db op sid op-id op-time)
+              match op
+                (:session/connect op-data) (session/connect db op-data sid op-id op-time)
+                (:session/disconnect op-data) (session/disconnect db op-data sid op-id op-time)
+                (:session/remove-message op-data) (session/remove-message db op-data sid op-id op-time)
+                (:user/log-in op-data) (user/log-in db op-data sid op-id op-time)
+                (:user/sign-up op-data) (user/sign-up db op-data sid op-id op-time)
+                (:user/log-out op-data) (user/log-out db op-data sid op-id op-time)
+                (:router/change op-data) (router/change db op-data sid op-id op-time)
+                (:stack/add op-data) (router/add-stack db op-data sid op-id op-time)
+                (:stack/close op-data) (router/close-stack db op-data sid op-id op-time)
+                (:topic/add op-data) (topic/add-topic db op-data sid op-id op-time)
+                (:topic/reply op-data) (topic/add-reply db op-data sid op-id op-time)
+                _ $ do (println "|Unknown op:" op) db
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
@@ -934,7 +1030,10 @@
           :code $ quote
             defn add-stack (db op-data sid op-id op-time)
               update-in db ([] :sessions sid :stack)
-                fn (s) (conj s op-data)
+                fn (s)
+                  conj
+                    option:unwrap-or s $ []
+                    , op-data
           :examples $ []
           :schema $ :: 'Dynamic
         'change $ %{} 'CodeEntry (:doc |)
@@ -947,7 +1046,10 @@
           :code $ quote
             defn close-stack (db op-data sid op-id op-time)
               update-in db ([] :sessions sid :stack)
-                fn (s) (dissoc s op-data)
+                fn (s)
+                  dissoc
+                    option:unwrap-or s $ []
+                    , op-data
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
@@ -972,7 +1074,9 @@
             defn remove-message (db op-data sid op-id op-time)
               update-in db ([] :sessions sid :messages)
                 fn (messages)
-                  dissoc messages $ :id op-data
+                  dissoc
+                    option:unwrap-or messages $ {}
+                    &map:get (unsafe-coerce op-data 'Map) :id
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
@@ -985,10 +1089,11 @@
             defn add-reply (db op-data sid op-id op-time)
               let
                   user-id $ get-in db ([] :sessions sid :user-id)
+                  op-map $ unsafe-coerce op-data 'Map
                 assoc-in db
-                  [] :topics (:topic-id op-data) :replies op-id
+                  [] :topics (&map:get op-map :topic-id) :replies op-id
                   merge schema/reply $ {} (:id op-id) (:time op-time)
-                    :content $ :text op-data
+                    :content $ &map:get op-map :text
                     :author-id user-id
           :examples $ []
           :schema $ :: 'Dynamic
@@ -1012,21 +1117,36 @@
               let-sugar
                     [] username password
                     , op-data
-                  maybe-user $ -> (:users db) (vals) (.to-list)
+                  maybe-user $ -> (&map:get db :users) (vals) (.to-list)
                     find $ fn (user)
-                      and $ = username (:name user)
+                      = username $ &map:get (unsafe-coerce user 'Map) :name
                 update-in db ([] :sessions sid)
                   fn (session)
-                    if (some? maybe-user)
+                    if (option:some? maybe-user)
                       if
-                        = (md5 password) (:password maybe-user)
-                        assoc session :user-id $ :id maybe-user
-                        update session :messages $ fn (messages)
-                          assoc messages op-id $ {} (:id op-id)
-                            :text $ str "|Wrong password for " username
-                      update session :messages $ fn (messages)
-                        assoc messages op-id $ {} (:id op-id)
-                          :text $ str "|No user named: " username
+                        = (md5 password)
+                          &map:get
+                            unsafe-coerce (option:unwrap maybe-user) 'Map
+                            , :password
+                        assoc
+                          option:unwrap-or session $ {}
+                          , :user-id $ &map:get
+                            unsafe-coerce (option:unwrap maybe-user) 'Map
+                            , :id
+                        update
+                          option:unwrap-or session $ {}
+                          , :messages $ fn (messages)
+                            assoc
+                              option:unwrap-or messages $ {}
+                              , op-id $ {} (:id op-id)
+                                :text $ str "|Wrong password for " username
+                      update
+                        option:unwrap-or session $ {}
+                        , :messages $ fn (messages)
+                          assoc
+                            option:unwrap-or messages $ {}
+                            , op-id $ {} (:id op-id)
+                              :text $ str "|No user named: " username
           :examples $ []
           :schema $ :: 'Dynamic
         'log-out $ %{} 'CodeEntry (:doc |)
@@ -1042,14 +1162,16 @@
                     [] username password
                     , op-data
                   maybe-user $ find
-                    vals $ :users db
+                    -> (&map:get db :users) vals .to-list
                     fn (user)
-                      = username $ :name user
-                if (some? maybe-user)
+                      = username $ &map:get (unsafe-coerce user 'Map) :name
+                if (option:some? maybe-user)
                   update-in db ([] :sessions sid :messages)
                     fn (messages)
-                      assoc messages op-id $ {} (:id op-id)
-                        :text $ str "|Name is taken: " username
+                      assoc
+                        option:unwrap-or messages $ {}
+                        , op-id $ {} (:id op-id)
+                          :text $ str "|Name is taken: " username
                   -> db
                     assoc-in ([] :sessions sid :user-id) op-id
                     assoc-in ([] :users op-id)
