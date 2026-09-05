@@ -149,7 +149,9 @@
             defcomp comp-container (states store)
               let
                   states-map $ unsafe-coerce states 'Map
-                  store-map $ unsafe-coerce (or store {}) 'Map
+                  store-map $ unsafe-coerce
+                    or store $ {}
+                    , 'Map
                   state $ option:unwrap-or (&map:get states-map :data)
                     {} $ :demo |
                   session $ unsafe-coerce
@@ -168,7 +170,9 @@
                         <> $ format-cirru-edn router
                         :home $ comp-stack (>> states :stack)
                           option:unwrap-or (&map:get store-map :stack) ([])
-                        :profile $ comp-profile (&map:get store-map :user) router-data
+                        :profile $ comp-profile
+                          option:unwrap-or (&map:get store-map :user) ({})
+                          , router-data
                       comp-login $ >> states :login
                     =- :v
                     comp-navigation
@@ -424,8 +428,10 @@
                       {} $ :style
                         {} $ :border-bottom
                           str "|1px solid " $ hsl 0 0 80
-                      -> data
-                        or $ {}
+                      ->
+                        unsafe-coerce
+                          or data $ {}
+                          , 'Map
                         .to-list
                         .sort-by $ fn (pair)
                           let[] (_ topic) pair $ negate
@@ -602,7 +608,7 @@
                   =< 8 nil
                   list->
                     {} $ :style ui/row
-                    -> members (.to-list)
+                    -> (unsafe-coerce members 'Map) (.to-list)
                       map $ fn (pair)
                         let[] (k username) pair $ [] k
                           div
@@ -946,7 +952,7 @@
                                           get-in db-map $ [] :users (&map:get topic-map :author-id)
                                           {}
                                       update :replies $ fn (replies)
-                                        -> replies (.to-map)
+                                        -> (unsafe-coerce replies 'Map) (.to-map)
                                           map-kv $ fn (k v)
                                             let
                                                 value-map $ unsafe-coerce v 'Map
@@ -974,7 +980,7 @@
         'twig-members $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn twig-members (sessions users)
-              -> sessions (.to-list)
+              -> (unsafe-coerce sessions 'Map) (.to-list)
                 map $ fn (pair)
                   let[] (k session) pair $ [] k
                     option:unwrap-or
