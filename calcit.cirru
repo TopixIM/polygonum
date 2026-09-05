@@ -280,7 +280,9 @@
                     {} $ :style
                       merge ui/expand $ {}
                     list-> ({})
-                      -> (:replies topic) (.to-list)
+                      ->
+                        option:unwrap-or (get topic :replies) ({})
+                        .to-list
                         .sort-by $ fn (x)
                           :time $ nth x 1
                         map $ fn (pair)
@@ -314,7 +316,8 @@
                       button $ {} (:inner-text |Send) (:style ui/button)
                         :on-click $ fn (e d!)
                           let
-                              content $ .trim (:draft state)
+                              content $ .trim
+                                option:unwrap-or (get state :draft) |
                             when
                               not $ .blank? content
                               d! :topic/reply $ {}
@@ -406,7 +409,7 @@
           ns app.comp.container $ :require
             respo.util.format :refer $ hsl
             respo-ui.core :as ui
-            respo.core :refer $ defcomp <> >> div span button input textarea pre list-> a pre code
+            respo.core :refer $ defcomp <> >> div span button input textarea pre list-> a code
             respo.comp.inspect :refer $ comp-inspect
             respo.comp.space :refer $ =<
             app.comp.navigation :refer $ comp-navigation
@@ -759,14 +762,14 @@
             defn run-server! (port)
               wss-serve! (&{} :port port)
                 fn (data)
-                  key-match data
+                  match data
                     (:connect sid)
                       do (dispatch! :session/connect nil sid) (println "|New client.")
                     (:message sid msg)
                       let
                           action $ parse-cirru-edn msg
-                        case-default (:kind action) (println "|unknown action:" action)
-                          :op $ dispatch! (:op action) (:data action) sid
+                        case-default (&map:get action :kind) (println "|unknown action:" action)
+                          :op $ dispatch! (&map:get action :op) (&map:get action :data) sid
                     (:disconnect sid)
                       do (println "|Client closed!") (dispatch! :session/disconnect nil sid)
                     _ $ println "|unknown data:" data
@@ -828,7 +831,7 @@
                     :reel-length $ count records
                 merge base-data $ if logged-in?
                   {}
-                    :user $ memof-call twig-user
+                    :user $ twig-user
                       get-in db $ [] :users (:user-id session)
                     :router $ assoc router :data
                       case (:name router)
@@ -837,7 +840,7 @@
                             [] k $ assoc v :author
                               twig-user $ get-in db
                                 [] :users $ :author-id v
-                        :profile $ memof-call twig-members (:sessions db) (:users db)
+                        :profile $ twig-members (:sessions db) (:users db)
                         (:name router) ({})
                     :stack $ if
                       = :home $ get router :name
@@ -885,7 +888,6 @@
         :code $ quote
           ns app.twig.container $ :require
             app.twig.user :refer $ twig-user
-            memof.alias :refer $ memof-call
             calcit.std.rand :refer $ rand-hex-color!
     'app.twig.user $ %{} 'FileEntry
       :defs $ {}
