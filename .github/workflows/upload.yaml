@@ -52,6 +52,8 @@ jobs:
         calcit calcit.cirru analyze quality --baseline config/calcit-quality.cirru
         calcit calcit.cirru analyze dynamic-methods --max 0
         calcit calcit.cirru --entry server analyze dynamic-methods --max 0
+        calcit calcit.cirru analyze deprecated --summary-only
+        calcit calcit.cirru --entry server analyze deprecated --summary-only
 
     - name: Build web and server artifacts
       run: |
@@ -77,6 +79,7 @@ jobs:
         dest: 'rsync-user@tiye.me:/web-assets/repo/${{ github.repository }}'
 
     - name: Display status from deploy
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: echo "${{ steps.deploy.outputs.status }}"
 
     - name: Upload server script
@@ -93,4 +96,5 @@ jobs:
         dest: 'rsync-user@tiye.me:/servers/polygonum/'
 
     - name: Display status from deploy
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: echo "${{ steps.deploy-server.outputs.status }}"
