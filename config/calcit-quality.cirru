@@ -22,17 +22,17 @@
       :codeNil 1
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 2
+      :schemaDynamic 0
+      :typeNone 0
+      :typeNotFull 0
+      :unresolved 1
       :unsafeCoerce 5
     |app.client/dispatch! $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
       :schemaDynamic 1
-      :typeNone 1
+      :typeNone 0
       :typeNotFull 1
       :unresolved 1
       :unsafeCoerce 0
@@ -40,55 +40,46 @@
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.client/mount-target $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
+      :schemaDynamic 0
+      :typeNone 0
+      :typeNotFull 0
+      :unresolved 0
+      :unsafeCoerce 1
     |app.client/on-server-data $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
+      :unresolved 0
+      :unsafeCoerce 1
     |app.client/reload! $ {} (:codeDynamic 0)
       :codeNil 1
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 2
+      :schemaDynamic 0
+      :typeNone 0
+      :typeNotFull 0
+      :unresolved 1
       :unsafeCoerce 0
     |app.client/render-app! $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
+      :schemaDynamic 0
+      :typeNone 0
+      :typeNotFull 0
+      :unresolved 0
+      :unsafeCoerce 1
     |app.client/simulate-login! $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
+      :schemaDynamic 0
+      :typeNone 0
+      :typeNotFull 0
+      :unresolved 0
       :unsafeCoerce 1
     |app.comp.container/comp-card-header $ {} (:codeDynamic 0)
       :codeNil 0
@@ -103,10 +94,10 @@
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
+      :unresolved 0
       :unsafeCoerce 4
     |app.comp.container/comp-offline $ {} (:codeDynamic 0)
       :codeNil 1
@@ -121,10 +112,10 @@
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
+      :unresolved 0
       :unsafeCoerce 1
     |app.comp.container/comp-start $ {} (:codeDynamic 0)
       :codeNil 1
@@ -148,29 +139,29 @@
       :codeNil 4
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 5
-      :unsafeCoerce 7
+      :unresolved 4
+      :unsafeCoerce 9
     |app.comp.container/comp-topic-item $ {} (:codeDynamic 0)
       :codeNil 1
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 2
+      :unresolved 1
       :unsafeCoerce 2
     |app.comp.container/comp-topics $ {} (:codeDynamic 0)
       :codeNil 2
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 3
-      :unsafeCoerce 5
+      :unresolved 2
+      :unsafeCoerce 6
     |app.comp.container/comp-unknown-card $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
@@ -184,10 +175,10 @@
       :codeNil 3
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 4
+      :unresolved 3
       :unsafeCoerce 4
     |app.comp.login/initial-state $ {} (:codeDynamic 0)
       :codeNil 0
@@ -202,10 +193,10 @@
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
+      :unresolved 0
       :unsafeCoerce 0
     |app.comp.navigation/comp-navigation $ {} (:codeDynamic 0)
       :codeNil 2
@@ -220,17 +211,17 @@
       :codeNil 5
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 6
+      :unresolved 5
       :unsafeCoerce 2
     |app.comp.widget/=- $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
       :schemaDynamic 1
-      :typeNone 1
+      :typeNone 0
       :typeNotFull 1
       :unresolved 1
       :unsafeCoerce 0
@@ -342,258 +333,213 @@
       :typeNotFull 1
       :unresolved 1
       :unsafeCoerce 0
-    |app.server/*reader-reel $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 0
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.server/*reel $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 0
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
     |app.server/dispatch! $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
       :schemaDynamic 1
-      :typeNone 1
+      :typeNone 0
       :typeNotFull 1
       :unresolved 1
       :unsafeCoerce 0
-    |app.server/get-backup-path! $ {} (:codeDynamic 0)
+    |app.server/load-db $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
+      :unresolved 0
+      :unsafeCoerce 1
     |app.server/main! $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.server/on-exit! $ {} (:codeDynamic 0)
+      :schemaDynamic 0
+      :typeNone 0
+      :typeNotFull 0
+      :unresolved 0
+      :unsafeCoerce 1
+    |app.server/merge-loaded-db $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.server/persist-db! $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.server/reload! $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.server/render-loop! $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
+      :unresolved 0
+      :unsafeCoerce 1
     |app.server/run-server! $ {} (:codeDynamic 0)
       :codeNil 2
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 3
-      :unsafeCoerce 0
-    |app.server/storage-file $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
+      :schemaDynamic 0
+      :typeNone 0
+      :typeNotFull 0
+      :unresolved 2
       :unsafeCoerce 0
     |app.server/sync-clients! $ {} (:codeDynamic 0)
       :codeNil 1
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 2
+      :unresolved 1
       :unsafeCoerce 1
+    |app.twig.container/merge-dynamic-maps $ {} (:codeDynamic 0)
+      :codeNil 0
+      :declaredOptional 0
+      :deprecatedCalls 0
+      :schemaDynamic 0
+      :typeNone 0
+      :typeNotFull 1
+      :unresolved 0
+      :unsafeCoerce 2
     |app.twig.container/twig-container $ {} (:codeDynamic 0)
       :codeNil 1
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 2
-      :unsafeCoerce 10
+      :unresolved 1
+      :unsafeCoerce 17
     |app.twig.container/twig-members $ {} (:codeDynamic 0)
       :codeNil 1
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 2
+      :unresolved 1
       :unsafeCoerce 2
     |app.twig.user/twig-user $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
+      :unresolved 0
       :unsafeCoerce 0
     |app.updater.router/add-stack $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
+      :unresolved 0
       :unsafeCoerce 0
     |app.updater.router/change $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
+      :unresolved 0
       :unsafeCoerce 0
     |app.updater.router/close-stack $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
+      :unresolved 0
       :unsafeCoerce 0
     |app.updater.session/connect $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
+      :unresolved 0
       :unsafeCoerce 0
     |app.updater.session/disconnect $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
+      :unresolved 0
       :unsafeCoerce 0
     |app.updater.session/remove-message $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
+      :unresolved 0
       :unsafeCoerce 1
     |app.updater.topic/add-reply $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
+      :unresolved 0
       :unsafeCoerce 1
     |app.updater.topic/add-topic $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
+      :unresolved 0
       :unsafeCoerce 0
     |app.updater.user/log-in $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 3
+      :unresolved 0
+      :unsafeCoerce 2
     |app.updater.user/log-out $ {} (:codeDynamic 0)
       :codeNil 1
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 2
+      :unresolved 1
       :unsafeCoerce 0
     |app.updater.user/sign-up $ {} (:codeDynamic 0)
       :codeNil 1
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 0
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 2
-      :unsafeCoerce 1
+      :unresolved 1
+      :unsafeCoerce 2
     |app.updater/updater $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
+      :schemaDynamic 3
+      :typeNone 0
       :typeNotFull 1
-      :unresolved 1
+      :unresolved 3
       :unsafeCoerce 0
   :metrics $ {} (:codeDynamic 0)
     :codeNil 49
     :declaredOptional 0
     :deprecatedCalls 0
-    :schemaDynamic 65
-    :typeNone 49
-    :typeNotFull 56
-    :unresolved 114
-    :unsafeCoerce 50
+    :schemaDynamic 27
+    :typeNone 7
+    :typeNotFull 43
+    :unresolved 76
+    :unsafeCoerce 68
   :scope $ {} (:includeDependencies false)
     :namespace nil
     :namespacePrefix nil

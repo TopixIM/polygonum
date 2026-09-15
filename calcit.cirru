@@ -3,17 +3,11 @@
   :about "|Machine-generated snapshot. Do not edit directly — changes will be overwritten. Use `calcit query` to inspect and `calcit edit`/`calcit tree` to modify. Run `calcit docs agents --contract` before mutations; use `--full` for first orientation or changed contract digest. Manual edits must follow format and schema conventions, then run `calcit edit format`."
   :package |app
   :entries $ {}
-    :default $ {} (:description |)
-      :init-fn 'app.client/main!
-      :mode :js
-      :reload-fn 'app.client/reload!
+    :default $ {} (:description |) (:init-fn 'app.client/main!) (:mode :js) (:reload-fn 'app.client/reload!)
       :feature-policy $ {}
       :modules $ [] |respo.calcit/ |lilac/ |recollect/ |memof/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/ |alerts.calcit/
       :type-slots $ {}
-    :server $ {} (:description |)
-      :init-fn 'app.server/main!
-      :mode :native
-      :reload-fn 'app.server/reload!
+    :server $ {} (:description |) (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!)
       :feature-policy $ {}
       :modules $ [] |lilac/ |recollect/ |memof/ |cumulo-util.calcit/ |cumulo-reel.calcit/ |calcit.std/ |calcit-wss/
       :type-slots $ {}
@@ -25,31 +19,45 @@
             {} $ :states $ {}
               :cursor $ []
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref 'Dynamic
         '*store $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *store nil
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref 'Dynamic
+        'ParsedUrlHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait ParsedUrlHost (:query 'app.client/QueryHost)
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
+          :schema $ :: 'Trait
+        'QueryHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait QueryHost
+            :host $ :: 'JsNullish 'String
+            :port $ :: 'JsNullish 'String
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
+          :schema $ :: 'Trait
         'connect! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn connect! ()
             let
-                location $ unsafe-coerce js/location JsObject
+                location $ unsafe-coerce js/location 'js-ffi.browser/LocationHost
                 url-obj $ unsafe-coerce
                   url-parse (.-href location) true
-                  , JsObject
-                query $ unsafe-coerce (.-query url-obj) JsObject
+                  , 'app.client/ParsedUrlHost
+                query $ unsafe-coerce (.-query url-obj) 'app.client/QueryHost
                 raw-host $ .-host query
                 raw-port $ .-port query
                 host $ if (js-present? raw-host) (unsafe-coerce raw-host String) (.-hostname location)
-                port $ if (js-present? raw-port) (unsafe-coerce raw-port String) (&map:get config/site :port)
+                port $ if (js-present? raw-port) (unsafe-coerce raw-port String)
+                  .unwrap-or (get config/site :port) 11026
               ws-connect! (str |ws:// host |: port)
                 {}
                   :on-open $ fn (event) (simulate-login!)
-                  :on-close $ fn (event) (reset! *store nil)
-                    js/console.error "|Lost connection!"
+                  :on-close $ fn (event) (reset! *store nil) (js/console.error "|Lost connection!")
                   :on-data on-server-data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'ws-edn.client/WsClient)
+            :args $ []
+            :features $ #{} :js-ffi
         'dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn dispatch! (op op-data)
             when
@@ -60,33 +68,42 @@
               :states $ let[] (cursor s) op-data $ reset! *states (update-states @*states cursor s)
               :effect/connect $ connect!
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ [] 'Tag 'Dynamic
         'main! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn main! ()
-            load-console-formatter!
+          :code $ quote $ defn main! () (load-console-formatter!)
             println "|Running mode:" $ if config/dev? |dev |release
             render-app!
             connect!
             add-watch *store :changes $ fn (store prev) (render-app!)
             add-watch *states :changes $ fn (states prev) (render-app!)
-            on-page-touch $ fn () $ if (nil? @*store) (connect!)
+            on-page-touch $ unsafe-coerce
+              fn () $ if (nil? @*store) (connect!)
+              :: 'Fn $ {} (:return 'Unit)
+                :args $ []
             println "|App started!"
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
+            :features $ #{} :js-ffi
         'mount-target $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ def mount-target (.querySelector js/document |.app)
+          :code $ quote $ defn mount-target () (.querySelector js/document |.app)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ []
+            :features $ #{} :js-ffi
+            :return $ :: 'JsNullish 'JsObject
         'on-server-data $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-server-data (data)
-            case-default (&map:get data :kind)
-              println "|unknown server data kind:" data
+            case-default (&map:get data :kind) (println "|unknown server data kind:" data)
               :patch $ let
-                  changes $ &map:get data :data
+                  changes $ unsafe-coerce (&map:get data :data) (:: 'List 'recollect.schema/change-op)
                 when config/dev? $ js/console.log |Changes $ to-js-data changes
                 reset! *store $ patch-twig @*store changes
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ [] $ :: 'Map 'Tag 'Dynamic
+            :features $ #{} :js-ffi
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! ()
             if
@@ -97,24 +114,30 @@
                 add-watch *states :changes $ fn (states prev) (render-app!)
                 println "|Code updated."
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
         'render-app! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-app! ()
-            render! mount-target
+            render! (mount-target)
               comp-container (&map:get @*states :states) @*store
-              , dispatch!
+              unsafe-coerce dispatch! $ :: 'Fn $ {} (:return 'Unit)
+                :args $ [] 'Dynamic
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
+            :features $ #{} :js-ffi
         'simulate-login! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn simulate-login! ()
             let
-                raw $ js/localStorage.getItem $ &map:get config/site :storage-key
+                raw $ js/localStorage.getItem $ .unwrap-or (get config/site :storage-key) |
               if (js-present? raw)
                 do (println "|Found storage.")
                   dispatch! :user/log-in $ parse-cirru-edn $ unsafe-coerce raw String
                 do $ println "|Found no storage."
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
+            :features $ #{} :js-ffi
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.client
           :require
@@ -150,50 +173,52 @@
         'comp-container $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-container (states store)
             let
-                states-map $ unsafe-coerce states 'Map
+                states-map $ unsafe-coerce states $ :: 'Map 'Tag 'Dynamic
                 store-map $ unsafe-coerce
                   or store $ {}
-                  , 'Map
-                state $ option:unwrap-or (&map:get states-map :data)
+                  :: 'Map 'Tag 'Dynamic
+                state $ .unwrap-or (get states-map :data)
                   {} $ :demo |
                 session $ unsafe-coerce
-                  option:unwrap-or (&map:get store-map :session) ({})
-                  , 'Map
+                  .unwrap-or (get store-map :session) ({})
+                  :: 'Map 'Tag 'Dynamic
                 router $ unsafe-coerce
-                  option:unwrap-or (&map:get session :router) ({})
-                  , 'Map
-                router-data $ option:unwrap-or (&map:get router :data) ({})
+                  .unwrap-or (get session :router) ({})
+                  :: 'Map 'Tag 'Dynamic
+                router-data $ .unwrap-or (get router :data) ({})
               if (nil? store) (comp-offline)
                 div
                   {} $ :style $ merge ui/global ui/fullscreen ui/row
                   if
-                    option:unwrap-or (&map:get store-map :logged-in?) false
-                    case-default (&map:get router :name)
+                    .unwrap-or (get store-map :logged-in?) false
+                    case-default
+                      .unwrap-or (get router :name) :unknown
                       <> $ format-cirru-edn router
                       :home $ comp-stack (>> states :stack)
-                        option:unwrap-or (&map:get store-map :stack) ([])
+                        .unwrap-or (get store-map :stack) ([])
                       :profile $ comp-profile
-                        option:unwrap-or (&map:get store-map :user) ({})
+                        .unwrap-or (get store-map :user) ({})
                         , router-data
                     comp-login $ >> states :login
                   =- :v
                   comp-navigation
-                    option:unwrap-or (&map:get store-map :logged-in?) false
-                    option:unwrap-or (&map:get store-map :count) 0
-                  comp-status-color $ option:unwrap-or (&map:get store-map :color) |transparent
+                    .unwrap-or (get store-map :logged-in?) false
+                    .unwrap-or (get store-map :count) 0
+                  comp-status-color $ .unwrap-or (get store-map :color) |transparent
                   when dev? $ comp-inspect |Store store $ {} (:bottom 80) (:left 0) (:max-width |100%)
                   comp-messages
-                    option:unwrap-or
+                    .unwrap-or
                       get-in store-map $ [] :session :messages
                       {}
                     {}
-                    fn (info d!)
-                      d! :session/remove-message info
+                    fn (info d!) (d! :session/remove-message info)
                   when dev? $ comp-reel
-                    option:unwrap-or (&map:get store-map :reel-length) 0
+                    .unwrap-or (get store-map :reel-length) 0
                     {}
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'comp-offline $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-offline ()
             div
@@ -221,24 +246,29 @@
               -> stack
                 map-indexed $ fn (idx router)
                   let
-                      router-map $ unsafe-coerce router 'Map
-                      router-data $ option:unwrap-or (&map:get router-map :data) ({})
+                      router-map $ unsafe-coerce router $ :: 'Map 'Tag 'Dynamic
+                      router-data $ .unwrap-or (get router-map :data) ({})
                     [] idx $ div
                       {} $ :style $ merge ui/column
                         {} (:width 400) (:height |100%)
                           :border-right $ str "|1px solid " $ hsl 0 0 90
-                      comp-card-header (&map:get router-map :name) idx
-                      case-default (&map:get router-map :name)
+                      comp-card-header
+                        .unwrap-or (get router-map :name) :unknown
+                        , idx
+                      case-default
+                        .unwrap-or (get router-map :name) :unknown
                         comp-unknown-card router
                         :topics $ comp-topics (>> states :chat) router-data
                         :topic $ comp-topic
-                          >> states $ str :topic $ option:unwrap-or
+                          >> states $ str :topic $ .unwrap-or
                             get-in router-map $ [] :data :id
                             , |
                           , router-data
                 concat $ [] $ [] 999 (comp-start)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] 'Dynamic $ :: 'List 'Dynamic
+            :features $ #{} :js-ffi
         'comp-start $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-start ()
             div
@@ -268,41 +298,40 @@
             div $ {} $ :style
               let
                   size 24
-                {} (:width size) (:height size) (:position :absolute) (:bottom 60) (:left 8)
-                  :background-color color
-                  :border-radius |50%
-                  :opacity 0.6
-                  :pointer-events :none
+                {} (:width size) (:height size) (:position :absolute) (:bottom 60) (:left 8) (:background-color color) (:border-radius |50%) (:opacity 0.6) (:pointer-events :none)
           :examples $ []
           :schema $ :: 'Dynamic
         'comp-topic $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-topic (states topic)
             let
-                states-map $ unsafe-coerce states 'Map
-                topic-map $ unsafe-coerce topic 'Map
-                cursor $ option:unwrap-or (&map:get states-map :cursor) ([])
-                state $ option:unwrap-or (&map:get states-map :data)
+                states-map $ unsafe-coerce states $ :: 'Map 'Tag 'Dynamic
+                topic-map $ unsafe-coerce topic $ :: 'Map 'Tag 'Dynamic
+                cursor $ .unwrap-or (get states-map :cursor) ([])
+                state $ .unwrap-or (get states-map :data)
                   {} $ :draft |
-                state-map $ unsafe-coerce state 'Map
+                state-map $ unsafe-coerce state $ :: 'Map 'Tag 'Dynamic
               div
                 {} $ :style $ merge ui/expand ui/column
                   {} $ :border-top $ str "|1px solid " (hsl 0 0 88)
                 div
                   {} $ :style $ {} (:padding 8)
                   span $ {} $ :inner-text
-                    option:unwrap-or (&map:get topic-map :content) |-
+                    .unwrap-or (get topic-map :content) |-
                 div
                   {} $ :style $ {} (:padding 8)
                     :border-bottom $ str "|1px solid " $ hsl 0 0 90
                   <>
-                    str |@ $ option:unwrap-or
+                    str |@ $ .unwrap-or
                       get-in topic-map $ [] :author :nickname
                       , |
                     {} $ :color $ hsl 0 0 50
                   =< 8 nil
                   <>
                     unsafe-coerce
-                      -> (&map:get topic-map :time) (dayjs) (.!format |HH:mm)
+                      ->
+                        .unwrap-or (get topic-map :time) 0
+                        dayjs
+                        .!format |HH:mm
                       , String
                     {}
                       :color $ hsl 0 0 70
@@ -311,88 +340,106 @@
                 div
                   {} $ :style $ merge ui/expand ({})
                   list-> ({})
-                    ->
-                      option:unwrap-or (&map:get topic-map :replies) ({})
-                      .to-list
-                      .sort-by $ fn (pair)
-                        let[] (_ reply) pair $ &map:get (unsafe-coerce reply 'Map) :time
-                      map $ fn (pair)
-                        let[] (k reply) pair $ let
-                            reply-map $ unsafe-coerce reply 'Map
-                          [] k
-                          div
-                            {} $ :style $ {} (:padding |8px)
-                              :border-bottom $ str "|1px solid " $ hsl 0 0 90
-                            div ({})
-                              <> $ str |@ $ option:unwrap-or
-                                get-in reply-map $ [] :author :nickname
-                                , |
-                              =< 8 nil
-                              <> $ unsafe-coerce
-                                -> (&map:get reply-map :time) (dayjs) (.!format |HH:mm)
-                                , String
-                            div ({})
-                              <> $ option:unwrap-or (&map:get reply-map :content) |
+                    unsafe-coerce
+                      ->
+                        unsafe-coerce
+                          .unwrap-or (get topic-map :replies) ({})
+                          :: 'Map 'Tag 'Dynamic
+                        &map:to-list
+                        &list:sort-by $ fn (pair)
+                          let[] (_ reply) pair $ .unwrap-or
+                            get
+                              unsafe-coerce reply $ :: 'Map 'Tag 'Dynamic
+                              , :time
+                            , 0
+                        map $ fn (pair)
+                          let[] (k reply) pair $ let
+                              reply-map $ unsafe-coerce reply $ :: 'Map 'Tag 'Dynamic
+                            [] k
+                            div
+                              {} $ :style $ {} (:padding |8px)
+                                :border-bottom $ str "|1px solid " $ hsl 0 0 90
+                              div ({})
+                                <> $ str |@ $ .unwrap-or
+                                  get-in reply-map $ [] :author :nickname
+                                  , |
+                                =< 8 nil
+                                <> $ unsafe-coerce
+                                  ->
+                                    .unwrap-or (get reply-map :time) 0
+                                    dayjs
+                                    .!format |HH:mm
+                                  , String
+                              div ({})
+                                <> $ .unwrap-or (get reply-map :content) |
+                      :: 'List $ :: 'List 'Dynamic
                   =< nil 80
                 div
                   {} $ :style $ merge ui/row
                     {} $ :border-top $ str "|1px solid " (hsl 0 0 90)
                   textarea $ {}
                     :style $ merge ui/expand ui/textarea
-                    :value $ option:unwrap-or (&map:get state-map :draft) |
+                    :value $ .unwrap-or (get state-map :draft) |
                     :placeholder |Reply...
                     :on-change $ fn (e d!)
-                      d! cursor $ assoc state :draft $ option:unwrap-or (get e :value) |
+                      d! cursor $ assoc state :draft $ .unwrap-or (get e :value) |
                   =< 8 nil
                   div ({})
                     button $ {} (:inner-text |Send) (:style ui/button)
                       :on-click $ fn (e d!)
                         let
-                            content $ .trim $ option:unwrap-or (get state :draft) |
+                            content $ trim $ .unwrap-or (get state :draft) |
                           when
-                            not $ .blank? content
+                            not $ blank? content
                             d! :topic/reply $ {}
-                              :topic-id $ &map:get topic-map :id
+                              :topic-id $ .unwrap-or (get topic-map :id) |
                               :text content
                             d! cursor $ assoc state :draft |
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'comp-topic-item $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-topic-item (topic)
             let
-                topic-map $ unsafe-coerce topic 'Map
+                topic-map $ unsafe-coerce topic $ :: 'Map 'Tag 'Dynamic
               div
                 {} $ :style $ {} (:padding 8)
                   :border-top $ str "|1px solid " $ hsl 0 0 88
                 div ({})
                   span $ {}
-                    :inner-text $ option:unwrap-or (&map:get topic-map :content) |-
+                    :inner-text $ .unwrap-or (get topic-map :content) |-
                     :on-click $ fn (e d!)
                       d! :stack/add $ {} (:name :topic)
-                        :data $ &map:get topic-map :id
+                        :data $ .unwrap-or (get topic-map :id) |
                 div ({})
                   <>
-                    str |@ $ option:unwrap-or
+                    str |@ $ .unwrap-or
                       get-in topic-map $ [] :author :nickname
                       , |
                     {} $ :color $ hsl 0 0 50
                   =< 8 nil
                   <>
                     unsafe-coerce
-                      -> (&map:get topic-map :time) (dayjs) (.!format |HH:mm)
+                      ->
+                        .unwrap-or (get topic-map :time) 0
+                        dayjs
+                        .!format |HH:mm
                       , String
                     {}
                       :color $ hsl 0 0 70
                       :font-weight 300
                       :font-family ui/font-fancy
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] 'Dynamic
+            :features $ #{} :js-ffi
         'comp-topics $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-topics (states data)
             let
-                states-map $ unsafe-coerce states 'Map
-                cursor $ option:unwrap-or (&map:get states-map :cursor) ([])
-                state $ option:unwrap-or (&map:get states-map :data) ({})
+                states-map $ unsafe-coerce states $ :: 'Map 'Tag 'Dynamic
+                cursor $ .unwrap-or (get states-map :cursor) ([])
+                state $ .unwrap-or (get states-map :data) ({})
                 create-plugin $ use-prompt (>> states :new)
                   {} $ :title "|Create Topic"
               div
@@ -413,21 +460,27 @@
                   list->
                     {} $ :style $ {}
                       :border-bottom $ str "|1px solid " $ hsl 0 0 80
-                    ->
-                      unsafe-coerce
-                        or data $ {}
-                        , 'Map
-                      .to-list
-                      .sort-by $ fn (pair)
-                        let[] (_ topic) pair $ negate $ option:unwrap-or
-                          &map:get (unsafe-coerce topic 'Map) :time
-                          , 0
-                      .map $ fn (pair)
-                        let[] (k topic) pair $ [] k $ comp-topic-item topic
+                    unsafe-coerce
+                      ->
+                        unsafe-coerce
+                          or data $ {}
+                          :: 'Map 'Tag 'Dynamic
+                        &map:to-list
+                        &list:sort-by $ fn (pair)
+                          let[] (_ topic) pair $ negate $ .unwrap-or
+                            get
+                              unsafe-coerce topic $ :: 'Map 'Tag 'Dynamic
+                              , :time
+                            , 0
+                        map $ fn (pair)
+                          let[] (k topic) pair $ [] k $ comp-topic-item topic
+                      :: 'List $ :: 'List 'Dynamic
                   =< nil 100
                 .render create-plugin
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
         'comp-unknown-card $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-unknown-card (router)
             div
@@ -463,10 +516,10 @@
         'comp-login $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-login (states)
             let
-                states-map $ unsafe-coerce states 'Map
-                cursor $ option:unwrap-or (&map:get states-map :cursor) ([])
-                state $ option:unwrap-or (&map:get states-map :data) initial-state
-                state-map $ unsafe-coerce state 'Map
+                states-map $ unsafe-coerce states $ :: 'Map 'Tag 'Dynamic
+                cursor $ .unwrap-or (get states-map :cursor) ([])
+                state $ .unwrap-or (get states-map :data) initial-state
+                state-map $ unsafe-coerce state $ :: 'Map 'Tag 'Dynamic
               div
                 {} $ :style $ merge
                   unsafe-coerce ui/flex $ :: 'Map 'Tag 'Dynamic
@@ -476,35 +529,37 @@
                     {} $ :style $ {}
                     div ({})
                       input $ {} (:placeholder |Username)
-                        :value $ option:unwrap-or (&map:get state-map :username) |
+                        :value $ .unwrap-or (get state-map :username) |
                         :style ui/input
                         :on-input $ fn (e d!)
-                          d! cursor $ assoc state :username $ option:unwrap-or (get e :value) |
+                          d! cursor $ assoc state :username $ .unwrap-or (get e :value) |
                     =< nil 8
                     div ({})
                       input $ {} (:placeholder |Password)
-                        :value $ option:unwrap-or (&map:get state-map :password) |
+                        :value $ .unwrap-or (get state-map :password) |
                         :style ui/input
                         :on-input $ fn (e d!)
-                          d! cursor $ assoc state :password $ option:unwrap-or (get e :value) |
+                          d! cursor $ assoc state :password $ .unwrap-or (get e :value) |
                   =< nil 8
                   div
                     {} $ :style $ {} (:text-align :right)
                     span $ {} (:inner-text "|Sign up")
                       :style $ merge ui/link
                       :on-click $ on-submit
-                        option:unwrap-or (&map:get state-map :username) |
-                        option:unwrap-or (&map:get state-map :password) |
+                        .unwrap-or (get state-map :username) |
+                        .unwrap-or (get state-map :password) |
                         , true
                     =< 8 nil
                     span $ {} (:inner-text "|Log in")
                       :style $ merge ui/link
                       :on-click $ on-submit
-                        option:unwrap-or (&map:get state-map :username) |
-                        option:unwrap-or (&map:get state-map :password) |
+                        .unwrap-or (get state-map :username) |
+                        .unwrap-or (get state-map :password) |
                         , false
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] 'Dynamic
+            :features $ #{} :js-ffi
         'initial-state $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def initial-state
             {} (:username |) (:password |)
@@ -514,10 +569,15 @@
           :code $ quote $ defn on-submit (username password signup?)
             fn (e dispatch!)
               dispatch! (if signup? :user/sign-up :user/log-in) ([] username password)
-              .setItem js/localStorage (&map:get config/site :storage-key)
+              .setItem js/localStorage
+                .unwrap-or (get config/site :storage-key) |
                 format-cirru-edn $ [] username password
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'String 'String 'Bool
+            :features $ #{} :js-ffi
+            :return $ :: 'Fn $ {} (:return 'Unit)
+              :args $ [] 'Dynamic 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.login
           :require
@@ -565,12 +625,12 @@
         %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-profile (user members)
             let
-                user-map $ unsafe-coerce user 'Map
+                user-map $ unsafe-coerce user $ :: 'Map 'Tag 'Dynamic
               div $ {} $ :style
                 merge ui/flex $ {} $ :padding 16
               div
                 {} $ :style $ {} (:font-family ui/font-fancy) (:font-size 32) (:font-weight 100)
-                <> $ str "|Hello! " $ option:unwrap-or (&map:get user-map :name) |
+                <> $ str "|Hello! " $ .unwrap-or (get user-map :name) |
               =< nil 16
               div
                 {} $ :style ui/row
@@ -578,7 +638,9 @@
                 =< 8 nil
                 list->
                   {} $ :style ui/row
-                  -> (unsafe-coerce members 'Map) (.to-list)
+                  ->
+                    unsafe-coerce members $ :: 'Map 'Tag 'Dynamic
+                    &map:to-list
                     map $ fn (pair)
                       let[] (k username) pair $ [] k $ div
                         {} $ :style $ {} (:padding "|0 8px")
@@ -602,7 +664,9 @@
                       .removeItem js/localStorage $ &map:get config/site :storage-key
                   <> "|Log out"
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.profile
           :require
@@ -615,16 +679,17 @@
     'app.comp.widget $ %{} 'FileEntry
       :defs $ {} $ '=-
         %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn =- (direction ? style)
+          :code $ quote $ defn =- (direction style)
             div $ {} $ :style
               merge
                 {} $ :background-color $ hsl 0 0 88
                 if (= direction :v)
                   {} (:width 1) (:height |100%)
                   {} (:height 1) (:width |100%)
-                , style
+                .unwrap-or style $ {}
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Element)
+            :args $ [] 'Tag $ :: 'Option (:: 'Map 'Tag 'Dynamic)
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.widget
           :require
@@ -639,11 +704,7 @@
           :schema $ :: 'Dynamic
         'site $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def site
-            {} (:port 11026) (:title |Polygonum)
-              :icon |http://cdn.tiye.me/logo/cumulo.png
-              :theme |#eeeeff
-              :storage-key |polygonum
-              :storage-file |storage.cirru
+            {} (:port 11026) (:title |Polygonum) (:icon |http://cdn.tiye.me/logo/cumulo.png) (:theme |#eeeeff) (:storage-key |polygonum) (:storage-file |storage.cirru)
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
@@ -702,40 +763,42 @@
         '*client-caches $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *client-caches ({})
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref 'Dynamic
         '*initial-db $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *initial-db
             if
               path-exists? $ w-log storage-file
-              do
-                println "|Found local EDN data"
-                merge schema/database $ parse-cirru-edn $ read-file storage-file
+              do (println "|Found local EDN data")
+                merge-loaded-db schema/database $ load-db storage-file
               do (println "|Found no data") schema/database
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref $ :: 'Map 'Tag 'Dynamic
         '*proxied-dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *proxied-dispatch! dispatch!
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'Tag 'Dynamic 'Number
         '*reader-reel $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *reader-reel @*reel
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref 'cumulo-reel.core/ReelState
         '*reel $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *reel
             struct-with reel-schema (:base @*initial-db) (:db @*initial-db)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref 'cumulo-reel.core/ReelState
         'dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn dispatch! (op op-data sid)
             let
                 op-id $ generate-id!
-                op-time $ -> (get-time!) (.timestamp)
+                op-time $ calcit.std.date/get-timestamp $ get-time!
               if config/dev? $ println |Dispatch! (str op) op-data sid
               if (= op :effect/persist) (persist-db!)
                 reset! *reel $ reel-reducer @*reel updater (:: op op-data) sid op-id op-time config/dev?
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ [] 'Tag 'Dynamic 'Number
         'get-backup-path! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn get-backup-path! ()
             let
@@ -744,28 +807,57 @@
                 str $ &map:get now :month
                 str (&map:get now :day) |-snapshot.cirru
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'String)
+            :args $ []
+            :features $ #{} :js-ffi
+        'load-db $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn load-db (path)
+            unsafe-coerce
+              parse-cirru-edn $ read-file path
+              :: 'Map 'Tag 'Dynamic
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'String
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! ()
             println "|Running mode:" $ if config/dev? |dev |release
             let
-                port $ option:unwrap-or
-                  option:map (get-env |port) parse-float
-                  &map:get config/site :port
+                p? $ get-env |port
+                fallback $ unsafe-coerce
+                  .unwrap-or (get config/site :port) 11026
+                  , Number
+                port $ if (.some? p?)
+                  .unwrap-or
+                    parse-float $ .unwrap p?
+                    , fallback
+                  , fallback
               run-server! port
               println $ str "|Server started on port:" port
-            do
-              ; "|init it before doing multi-threading"
-              identity @*reader-reel
+            do (; "|init it before doing multi-threading") (identity @*reader-reel)
             set-interval 200 $ fn () $ render-loop!
             set-interval 600000 $ fn () $ persist-db!
             on-control-c on-exit!
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'FfiTask)
+            :args $ []
+            :features $ #{} :js-ffi
+        'merge-loaded-db $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn merge-loaded-db (base loaded)
+            merge
+              unsafe-coerce base $ :: 'Map 'Tag 'Dynamic
+              , loaded
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic $ :: 'Map 'Tag 'Dynamic
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
         'on-exit! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-exit! () (persist-db!) (; println "|exit code is...") (quit! 0)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
         'persist-db! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn persist-db! ()
             let
@@ -775,24 +867,27 @@
               check-write-file! storage-path file-content
               check-write-file! backup-path file-content
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! () (println "|Code updated..")
-            if (not config/dev?)
-              raise "|reloading only happens in dev mode"
+            if (not config/dev?) (raise "|reloading only happens in dev mode")
             clear-twig-caches!
             reset! *reel $ refresh-reel @*reel @*initial-db updater
             sync-clients! @*reader-reel
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
         'render-loop! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-loop! ()
             when
               not $ identical? @*reader-reel @*reel
               reset! *reader-reel @*reel
               sync-clients! @*reader-reel
+            , &unit
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ []
         'run-server! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn run-server! (port)
             wss-serve! (&{} :port port)
@@ -806,21 +901,21 @@
                       case-default (&map:get action :kind) (println "|unknown action:" action)
                         :op $ dispatch! (&map:get action :op) (&map:get action :data) sid
                   (:disconnect sid)
-                    do (println "|Client closed!")
-                      dispatch! :session/disconnect nil sid
+                    do (println "|Client closed!") (dispatch! :session/disconnect nil sid)
                   _ $ println "|unknown data:" data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'FfiTask)
+            :args $ [] 'Number
+            :features $ #{} :js-ffi
         'storage-file $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def storage-file
             if (empty? calcit-dirname)
               str calcit-dirname $ :storage-file config/site
               str calcit-dirname |/ $ :storage-file config/site
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'sync-clients! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn sync-clients! (reel)
-            begin-twig-frame!
+          :code $ quote $ defn sync-clients! (reel) (begin-twig-frame!)
             wss-each! $ fn (sid)
               let
                   reel-state $ unsafe-coerce reel 'cumulo-reel.core/ReelState
@@ -832,13 +927,15 @@
                   changes $ diff-twig old-store new-store $ {} (:key :id)
                 ; when config/dev? $ println "|Changes for" sid |: changes $ count records
                 if
-                  not= changes $ []
+                  not $ empty? changes
                   do
                     wss-send! sid $ format-cirru-edn $ {} (:kind :patch) (:data changes)
                     swap! *client-caches assoc sid new-store
             finish-twig-frame!
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ [] 'Dynamic
+            :features $ #{} :js-ffi
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.server
           :require (app.schema :as schema)
@@ -857,98 +954,135 @@
             calcit.std.path :refer $ join-path
     'app.twig.container $ %{} 'FileEntry
       :defs $ {}
+        'merge-dynamic-maps $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn merge-dynamic-maps (a b)
+            merge
+              unsafe-coerce a $ :: 'Map 'Tag 'Dynamic
+              unsafe-coerce b $ :: 'Map 'Tag 'Dynamic
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic 'Dynamic
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
         'twig-container $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-container (db session records)
             let
-                db-map $ unsafe-coerce db 'Map
+                db-map $ unsafe-coerce db $ :: 'Map 'Tag 'Dynamic
                 session-map $ unsafe-coerce
-                  option:unwrap-or session $ {}
-                  , 'Map
-                user-id $ &map:get session-map :user-id
-                logged-in? $ some? user-id
+                  .unwrap-or session $ {}
+                  :: 'Map 'Tag 'Dynamic
+                user-id $ get session-map :user-id
+                logged-in? $ .some? user-id
                 router $ unsafe-coerce
-                  option:unwrap-or (&map:get session-map :router) ({})
-                  , 'Map
+                  .unwrap-or (get session-map :router) ({})
+                  :: 'Map 'Tag 'Dynamic
                 base-data $ {} (:logged-in? logged-in?) (:session session-map)
                   :reel-length $ count records
-              merge base-data $ if logged-in?
+              merge-dynamic-maps base-data $ if logged-in?
                 let
                     user $ unsafe-coerce
-                      option:unwrap-or
+                      .unwrap-or
                         get-in db-map $ [] :users user-id
                         {}
-                      , 'Map
+                      :: 'Map 'Tag 'Dynamic
                   {}
                     :user $ twig-user user
-                    :router $ assoc router :data $ case-default (&map:get router :name) ({})
+                    :router $ assoc router :data $ case-default (get router :name) ({})
                       :home $ ->
-                        option:unwrap-or (&map:get db-map :messages) ({})
-                        .to-map
-                        map-kv $ fn (k v)
+                        .unwrap-or (get db-map :messages) ({})
+                        unsafe-coerce $ :: 'Map 'Tag 'Dynamic
+                        filter-map-kv $ fn (k v)
+                          hint-fn $ {}
+                            :args $ [] 'Tag 'Dynamic
+                            :return $ :: 'MapEntryDecision 'Tag 'Dynamic
                           let
-                              value-map $ unsafe-coerce v 'Map
-                            [] k $ assoc value-map :author $ twig-user
-                              option:unwrap-or
-                                get-in db-map $ [] :users $ &map:get value-map :author-id
+                              value-map $ unsafe-coerce v $ :: 'Map 'Tag 'Dynamic
+                            %:: MapEntryDecision :keep k $ assoc value-map :author $ twig-user
+                              .unwrap-or
+                                get-in db-map $ [] :users $ get value-map :author-id
                                 {}
                       :profile $ twig-members
-                        option:unwrap-or (&map:get db-map :sessions) ({})
-                        option:unwrap-or (&map:get db-map :users) ({})
+                        unsafe-coerce
+                          .unwrap-or (get db-map :sessions) ({})
+                          :: 'Map 'Tag 'Dynamic
+                        unsafe-coerce
+                          .unwrap-or (get db-map :users) ({})
+                          :: 'Map 'Tag 'Dynamic
                     :stack $ if
-                      = :home $ &map:get router :name
+                      = :home $ unsafe-coerce
+                        .unwrap-or (get router :name) :unknown
+                        , Tag
                       ->
-                        option:unwrap-or (&map:get session-map :stack) ([])
+                        .unwrap-or (get session-map :stack) ([])
                         map $ fn (stack-router)
                           let
-                              router-map $ unsafe-coerce stack-router 'Map
-                            assoc router-map :data $ case-default (&map:get router-map :name)
+                              router-map $ unsafe-coerce stack-router $ :: 'Map 'Tag 'Dynamic
+                            assoc router-map :data $ case-default (get router-map :name)
                               {} $ :original-data router-map
                               :topic $ if-let
-                                topic $ get-in db-map $ [] :topics (&map:get router-map :data)
+                                topic $ get-in db-map $ [] :topics (get router-map :data)
                                 let
-                                    topic-map $ unsafe-coerce topic 'Map
+                                    topic-map $ unsafe-coerce topic $ :: 'Map 'Tag 'Dynamic
                                   -> topic-map
-                                    assoc :author $ twig-user $ option:unwrap-or
-                                      get-in db-map $ [] :users $ &map:get topic-map :author-id
+                                    assoc :author $ twig-user $ .unwrap-or
+                                      get-in db-map $ [] :users $ get topic-map :author-id
                                       {}
                                     update :replies $ fn (replies)
-                                      -> (unsafe-coerce replies 'Map) (.to-map)
-                                        map-kv $ fn (k v)
+                                      ->
+                                        unsafe-coerce replies $ :: 'Map 'Tag 'Dynamic
+                                        unsafe-coerce $ :: 'Map 'Tag 'Dynamic
+                                        filter-map-kv $ fn (k v)
+                                          hint-fn $ {}
+                                            :args $ [] 'Tag 'Dynamic
+                                            :return $ :: 'MapEntryDecision 'Tag 'Dynamic
                                           let
-                                              value-map $ unsafe-coerce v 'Map
-                                            [] k $ assoc value-map :author $ twig-user
-                                              option:unwrap-or
-                                                get-in db-map $ [] :users $ &map:get value-map :author-id
+                                              value-map $ unsafe-coerce v $ :: 'Map 'Tag 'Dynamic
+                                            %:: MapEntryDecision :keep k $ assoc value-map :author $ twig-user
+                                              .unwrap-or
+                                                get-in db-map $ [] :users $ get value-map :author-id
                                                 {}
-                                , nil
+                                unsafe-coerce nil $ :: 'Map 'Tag 'Dynamic
                               :topics $ ->
-                                option:unwrap-or (&map:get db-map :topics) ({})
-                                .to-map
-                                map-kv $ fn (k v)
+                                .unwrap-or (get db-map :topics) ({})
+                                unsafe-coerce $ :: 'Map 'Tag 'Dynamic
+                                filter-map-kv $ fn (k v)
+                                  hint-fn $ {}
+                                    :args $ [] 'Tag 'Dynamic
+                                    :return $ :: 'MapEntryDecision 'Tag 'Dynamic
                                   let
-                                      value-map $ unsafe-coerce v 'Map
-                                    [] k $ assoc value-map :author $ twig-user
-                                      option:unwrap-or
-                                        get-in db-map $ [] :users $ &map:get value-map :author-id
+                                      value-map $ unsafe-coerce v $ :: 'Map 'Tag 'Dynamic
+                                    %:: MapEntryDecision :keep k $ assoc value-map :author $ twig-user
+                                      .unwrap-or
+                                        get-in db-map $ [] :users $ get value-map :author-id
                                         {}
                       []
-                    :count $ count $ &map:get db-map :sessions
+                    :count $ count $ get db-map :sessions
                     :color $ rand-hex-color!
                 {}
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Option 'Dynamic) 'Dynamic
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
         'twig-members $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-members (sessions users)
-            -> (unsafe-coerce sessions 'Map) (.to-list)
+            ->
+              unsafe-coerce sessions $ :: 'Map 'Tag 'Dynamic
+              &map:to-list
               map $ fn (pair)
-                let[] (k session) pair $ [] k $ option:unwrap-or
+                let[] (k session) pair $ [] k $ .unwrap-or
                   get-in users $ []
-                    &map:get (unsafe-coerce session 'Map) :user-id
+                    &map:get
+                      unsafe-coerce session $ :: 'Map 'Tag 'Dynamic
+                      , :user-id
                     , :name
                   , nil
               pairs-map
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic)
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.twig.container
           :require
@@ -959,7 +1093,9 @@
         %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-user (user) (dissoc user :password)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic
+            :features $ #{} :js-ffi
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.twig.user (:require)
     'app.updater $ %{} 'FileEntry
@@ -968,30 +1104,24 @@
           :code $ quote $ defn updater (db op sid op-id op-time)
             match op
               (:session/connect op-data) (session/connect db op-data sid op-id op-time)
-              (:session/disconnect op-data)
-                session/disconnect db op-data sid op-id op-time
-              (:session/remove-message op-data)
-                session/remove-message db op-data sid op-id op-time
+              (:session/disconnect op-data) (session/disconnect db op-data sid op-id op-time)
+              (:session/remove-message op-data) (session/remove-message db op-data sid op-id op-time)
               (:user/log-in op-data) (user/log-in db op-data sid op-id op-time)
               (:user/sign-up op-data) (user/sign-up db op-data sid op-id op-time)
               (:user/log-out op-data) (user/log-out db op-data sid op-id op-time)
               (:router/change op-data) (router/change db op-data sid op-id op-time)
               (:stack/add op-data) (router/add-stack db op-data sid op-id op-time)
-              (:stack/close op-data)
-                router/close-stack db op-data sid op-id op-time
+              (:stack/close op-data) (router/close-stack db op-data sid op-id op-time)
               (:topic/add op-data) (topic/add-topic db op-data sid op-id op-time)
               (:topic/reply op-data) (topic/add-reply db op-data sid op-id op-time)
               _ $ do (println "|Unknown op:" op) db
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic 'Number 'String 'Number
+            :return $ :: 'Map 'Tag 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater
-          :require
-            app.updater.session :as session
-            app.updater.user :as user
-            app.updater.router :as router
-            app.updater.topic :as topic
-            app.schema :as schema
+          :require (app.updater.session :as session) (app.updater.user :as user) (app.updater.router :as router) (app.updater.topic :as topic) (app.schema :as schema)
             respo-message.updater :refer $ update-messages
     'app.updater.router $ %{} 'FileEntry
       :defs $ {}
@@ -999,16 +1129,25 @@
           :code $ quote $ defn add-stack (db op-data sid op-id op-time)
             update-in db ([] :sessions sid :stack)
               fn (s)
+                hint-fn $ {}
+                  :args $ [] $ :: 'Option (:: 'List 'Dynamic)
+                  :return $ :: 'List 'Dynamic
                 conj
-                  option:unwrap-or s $ []
+                  .unwrap-or s $ []
                   , op-data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic 'Number 'String 'Number
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
         'change $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn change (db op-data sid op-id op-time)
             assoc-in db ([] :sessions sid :router) op-data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic 'Number 'String 'Number
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
         'close-stack $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn close-stack (db op-data sid op-id op-time)
             update-in db ([] :sessions sid :stack)
@@ -1017,7 +1156,10 @@
                   option:unwrap-or s $ []
                   , op-data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic 'Number 'String 'Number
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.router
     'app.updater.session $ %{} 'FileEntry
@@ -1027,21 +1169,35 @@
             assoc-in db ([] :sessions sid)
               merge schema/session $ {} $ :id sid
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic 'Number 'String 'Number
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
         'disconnect $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn disconnect (db op-data sid op-id op-time)
             update db :sessions $ fn (session) (dissoc session sid)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic 'Number 'String 'Number
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
         'remove-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-message (db op-data sid op-id op-time)
             update-in db ([] :sessions sid :messages)
               fn (messages)
+                hint-fn $ {}
+                  :args $ [] $ :: 'Option (:: 'Map 'Tag 'Dynamic)
+                  :return $ :: 'Map 'Tag 'Dynamic
                 dissoc
-                  option:unwrap-or messages $ {}
-                  &map:get (unsafe-coerce op-data 'Map) :id
+                  .unwrap-or messages $ {}
+                  &map:get
+                    unsafe-coerce op-data $ :: 'Map 'Tag 'Dynamic
+                    , :id
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic 'Number 'String 'Number
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.session
           :require $ app.schema :as schema
@@ -1058,7 +1214,10 @@
                   :content $ &map:get op-map :text
                   :author-id user-id
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic 'Number 'String 'Number
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
         'add-topic $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn add-topic (db op-data sid op-id op-time)
             let
@@ -1066,7 +1225,10 @@
               assoc-in db ([] :topics op-id)
                 merge schema/topic $ {} (:id op-id) (:time op-time) (:content op-data) (:author-id user-id)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic 'Number 'String 'Number
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.topic
           :require $ app.schema :as schema
@@ -1077,57 +1239,85 @@
             let-sugar
                   [] username password
                   , op-data
-                maybe-user $ -> (&map:get db :users) (vals) (.to-list)
+                maybe-user $ ->
+                  unsafe-coerce (&map:get db :users) (:: 'Map 'Tag 'Dynamic)
+                  vals
+                  &set:to-list
+                  unsafe-coerce $ :: 'List $ :: 'Map 'Tag 'Dynamic
                   find $ fn (user)
-                    = username $ &map:get (unsafe-coerce user 'Map) :name
+                    hint-fn $ {}
+                      :args $ [] $ :: 'Map 'Tag 'Dynamic
+                      :return 'Bool
+                    = username $ &map:get user :name
               update-in db ([] :sessions sid)
                 fn (session)
+                  hint-fn $ {}
+                    :args $ [] $ :: 'Option (:: 'Map 'Tag 'Dynamic)
+                    :return $ :: 'Map 'Tag 'Dynamic
                   if (option:some? maybe-user)
                     if
                       = (md5 password)
-                        &map:get
-                          unsafe-coerce (option:unwrap maybe-user) 'Map
-                          , :password
+                        &map:get (option:unwrap maybe-user) :password
                       assoc
-                        option:unwrap-or session $ {}
-                        , :user-id $ &map:get
-                          unsafe-coerce (option:unwrap maybe-user) 'Map
-                          , :id
+                        .unwrap-or session $ {}
+                        , :user-id $ &map:get (option:unwrap maybe-user) :id
                       update
-                        option:unwrap-or session $ {}
+                        .unwrap-or session $ {}
                         , :messages $ fn (messages)
+                          hint-fn $ {}
+                            :args $ [] 'Dynamic
+                            :return 'Dynamic
                           assoc
-                            option:unwrap-or messages $ {}
+                            or messages $ {}
                             , op-id $ {} (:id op-id)
                               :text $ str "|Wrong password for " username
                     update
-                      option:unwrap-or session $ {}
+                      .unwrap-or session $ {}
                       , :messages $ fn (messages)
+                        hint-fn $ {}
+                          :args $ [] 'Dynamic
+                          :return 'Dynamic
                         assoc
-                          option:unwrap-or messages $ {}
+                          or messages $ {}
                           , op-id $ {} (:id op-id)
                             :text $ str "|No user named: " username
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic 'Number 'String 'Number
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
         'log-out $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn log-out (db op-data sid op-id op-time)
             assoc-in db ([] :sessions sid :user-id) nil
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic 'Number 'String 'Number
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
         'sign-up $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn sign-up (db op-data sid op-id op-time)
             let-sugar
                   [] username password
                   , op-data
                 maybe-user $ find
-                  -> (&map:get db :users) vals .to-list
+                  unsafe-coerce
+                    ->
+                      unsafe-coerce (&map:get db :users) (:: 'Map 'Tag 'Dynamic)
+                      , vals &set:to-list
+                    :: 'List $ :: 'Map 'Tag 'Dynamic
                   fn (user)
-                    = username $ &map:get (unsafe-coerce user 'Map) :name
+                    hint-fn $ {}
+                      :args $ [] $ :: 'Map 'Tag 'Dynamic
+                      :return 'Bool
+                    = username $ &map:get user :name
               if (option:some? maybe-user)
                 update-in db ([] :sessions sid :messages)
                   fn (messages)
+                    hint-fn $ {}
+                      :args $ [] $ :: 'Option (:: 'Map 'String 'Dynamic)
+                      :return $ :: 'Map 'String 'Dynamic
                     assoc
-                      option:unwrap-or messages $ {}
+                      .unwrap-or messages $ {}
                       , op-id $ {} (:id op-id)
                         :text $ str "|Name is taken: " username
                 -> db
@@ -1137,7 +1327,10 @@
                       :password $ md5 password
                       :avatar nil
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic 'Number 'String 'Number
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.user
           :require
