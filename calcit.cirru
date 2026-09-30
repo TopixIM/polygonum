@@ -3,11 +3,11 @@
   :about "|Machine-generated snapshot. Do not edit directly — changes will be overwritten. Use `calcit query` to inspect and `calcit edit`/`calcit tree` to modify. Run `calcit docs agents --contract` before mutations; use `--full` for first orientation or changed contract digest. Manual edits must follow format and schema conventions, then run `calcit edit format`."
   :package |app
   :entries $ {}
-    :default $ {} (:description |) (:init-fn 'app.client/main!) (:mode :js) (:reload-fn 'app.client/reload!)
+    :default $ {} (:description |) (:init-fn 'app.client/main!) (:mode :js) (:reload-fn 'app.client/reload!) (:target :browser)
       :feature-policy $ {}
       :modules $ [] |respo.calcit/ |lilac/ |recollect/ |memof/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/ |alerts.calcit/
       :type-slots $ {}
-    :server $ {} (:description |) (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!)
+    :server $ {} (:description |) (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!) (:target :node)
       :feature-policy $ {}
       :modules $ [] |lilac/ |recollect/ |memof/ |cumulo-util.calcit/ |cumulo-reel.calcit/ |calcit.std/ |calcit-wss/
       :type-slots $ {}
@@ -230,7 +230,9 @@
                 {} $ :height 0
               div $ {} $ :style
                 {}
-                  :background-image $ str "|url(" (:icon config/site) "|)"
+                  :background-image $ str "|url("
+                    option:unwrap-or (get config/site :icon) |
+                    , "|)"
                   :width 128
                   :height 128
                   :background-size :contain
@@ -716,7 +718,7 @@
           :schema $ :: 'Dynamic
         'site $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def site
-            {} (:port 11026) (:title |Polygonum) (:icon |http://cdn.tiye.me/logo/cumulo.png) (:theme |#eeeeff) (:storage-key |polygonum) (:storage-file |storage.cirru)
+            {} (:port 11026) (:title |Polygonum) (:icon |https://cdn.tiye.me/logo/cumulo.png) (:theme |#eeeeff) (:storage-key |polygonum) (:storage-file |storage.cirru)
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
@@ -922,8 +924,8 @@
         'storage-file $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def storage-file
             if (empty? calcit-dirname)
-              str calcit-dirname $ :storage-file config/site
-              str calcit-dirname |/ $ :storage-file config/site
+              str calcit-dirname $ option:unwrap-or (get config/site :storage-file) |
+              str calcit-dirname |/ $ option:unwrap-or (get config/site :storage-file) |
           :examples $ []
           :schema $ :: 'String
         'sync-clients! $ %{} 'CodeEntry (:doc |)
@@ -934,7 +936,7 @@
                   db $ :db reel-state
                   records $ :records reel-state
                   session $ get-in db $ [] :sessions sid
-                  old-store $ or (get @*client-caches sid) nil
+                  old-store $ option:unwrap-or (get @*client-caches sid) nil
                   new-store $ twig-container db session records
                   changes $ diff-twig old-store new-store $ {} (:key :id)
                 ; when config/dev? $ println "|Changes for" sid |: changes $ count records
@@ -999,7 +1001,9 @@
                       :: 'Map 'Tag 'Dynamic
                   {}
                     :user $ twig-user user
-                    :router $ assoc router :data $ case-default (get router :name) ({})
+                    :router $ assoc router :data $ case-default
+                      option:unwrap-or (get router :name) :unknown
+                      {}
                       :home $ ->
                         .unwrap-or (get db-map :messages) ({})
                         unsafe-coerce $ :: 'Map 'Tag 'Dynamic
@@ -1029,7 +1033,8 @@
                         map $ fn (stack-router)
                           let
                               router-map $ unsafe-coerce stack-router $ :: 'Map 'Tag 'Dynamic
-                            assoc router-map :data $ case-default (get router-map :name)
+                            assoc router-map :data $ case-default
+                              option:unwrap-or (get router-map :name) :unknown
                               {} $ :original-data router-map
                               :topic $ if-let
                                 topic $ get-in db-map $ [] :topics (get router-map :data)
@@ -1068,7 +1073,7 @@
                                         get-in db-map $ [] :users $ get value-map :author-id
                                         {}
                       []
-                    :count $ count $ get db-map :sessions
+                    :count $ count $ option:unwrap-or (get db-map :sessions) ({})
                     :color $ rand-hex-color!
                 {}
           :examples $ []

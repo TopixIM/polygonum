@@ -1,18 +1,19 @@
 {
-  "packageManager": "yarn@4.12.0",
+  "packageManager": "yarn@4.18.0",
   "dependencies": {
-    "@calcit/procs": "0.22.0-alpha.3",
+    "@calcit/procs": "0.27.0",
     "bottom-tip": "^0.1.3",
-    "dayjs": "^1.11.7"
+    "dayjs": "^1.11.23"
   },
   "scripts": {
     "compile-page": "calcit calcit.cirru js",
-    "release-page": "vite build --base=./",
-    "watch-page": "calcit calcit.cirru -w"
+    "build": "yarn compile-page && vite build",
+    "release-page": "yarn build",
+    "watch-page": "calcit calcit.cirru js --watch"
   },
   "devDependencies": {
     "url-parse": "^1.5.10",
-    "vite": "^8.2.2"
+    "vite": "8.3.1"
   },
   "version": "0.0.3"
 }
