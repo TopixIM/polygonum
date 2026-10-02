@@ -9,17 +9,22 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: frontend-${{ github.repository }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'production' }}
+  cancel-in-progress: false
+  queue: max
+
 jobs:
   test:
     runs-on: ubuntu-24.04
     steps:
     - name: Check out repository
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      uses: actions/checkout@v7.0.1
       with:
         persist-credentials: false
 
     - name: Set up Node.js
-      uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      uses: actions/setup-node@v6.5.0
       with:
         node-version: 24
         package-manager-cache: false
@@ -28,10 +33,9 @@ jobs:
       run: |
         corepack enable
         corepack prepare yarn@4.18.0 --activate
-        yarn --version
 
     - name: Set up Calcit and Caps
-      uses: calcit-lang/setup-calcit@ca701be5a471759e442aa053cd100720bbe1f09f # v1.5.0
+      uses: calcit-lang/setup-calcit@v1.5.0
       with:
         version: "0.27.0"
         tools: calcit,caps
@@ -47,23 +51,23 @@ jobs:
     - name: Validate Calcit upgrade
       run: |
         set -euo pipefail
+        calcit fix --workflow strict --verify --format edn
         calcit calcit.cirru edit format
         git diff --exit-code -- calcit.cirru
         calcit calcit.cirru --check-only
         calcit calcit.cirru --entry server --check-only
         calcit calcit.cirru analyze quality --baseline config/calcit-quality.cirru
-        calcit calcit.cirru analyze dynamic-methods
-        calcit calcit.cirru --entry server analyze dynamic-methods
-        calcit calcit.cirru analyze deprecated --summary-only
-        calcit calcit.cirru --entry server analyze deprecated --summary-only
+        calcit analyze check-public --ns app.client --ns app.comp.container --ns app.comp.login --ns app.comp.navigation --ns app.comp.profile --ns app.comp.widget --ns app.config --ns app.schema
+        calcit --entry server analyze check-public --ns 'app.$meta' --ns app.config --ns app.schema --ns app.server --ns app.twig.container --ns app.twig.user --ns app.updater --ns app.updater.router --ns app.updater.session --ns app.updater.topic --ns app.updater.user
 
     - name: Select CDN asset path
       id: asset-path
       env:
         CDN_ORIGIN: https://cos-sh.tiye.me
+        PR_NUMBER: ${{ github.event.pull_request.number }}
       run: |
         if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
-          asset_prefix="${GITHUB_REPOSITORY}/pr/"
+          asset_prefix="${GITHUB_REPOSITORY}/pr/${PR_NUMBER}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}/"
         elif [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
           asset_prefix="${GITHUB_REPOSITORY}/"
         else
@@ -83,9 +87,23 @@ jobs:
         cp js-out/program-ir.cirru dist-server/compact.cirru
         cp calcit.cirru deps.cirru package.json dist-server/
 
-    - name: Check COS credentials
+    - name: Check current production revision
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      id: production
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        current_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+        if [[ "$GITHUB_SHA" == "$current_sha" ]]; then
+          echo "current=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "current=false" >> "$GITHUB_OUTPUT"
+          echo "::notice::Skip stale production revision ${GITHUB_SHA}; current main is ${current_sha}."
+        fi
+
+    - name: Select optional PR upload
       id: cos-credentials
-      if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      if: steps.production.outputs.current == 'true' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
       env:
         COS_BUCKET: ${{ secrets.COS_BUCKET }}
         COS_SECRET_ID: ${{ secrets.COS_SECRET_ID }}
@@ -105,7 +123,8 @@ jobs:
 
     - name: Upload and verify frontend assets on COS
       if: steps.cos-credentials.outputs.available == 'true'
-      uses: worktools/cos-upload-action@17e6d213fe9f6772a6090a13c8ba044cd6cbcb09 # v1.1.1
+      timeout-minutes: 10
+      uses: worktools/cos-upload-action@v1.2.0
       with:
         source-dir: dist
         bucket: ${{ secrets.COS_BUCKET }}
@@ -117,8 +136,8 @@ jobs:
 
     - name: Upload web assets
       id: deploy
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: Pendect/action-rsyncer@2554a1e574cf229fb144f23ea5971dbdca8ae8e3 # v1.1.0
+      if: steps.production.outputs.current == 'true'
+      uses: Pendect/action-rsyncer@v2.0.0
       env:
         DEPLOY_KEY: ${{secrets.rsync_private_key}}
       with:
@@ -128,14 +147,14 @@ jobs:
         src: 'dist/*'
         dest: 'rsync-user@tiye.me:/web-assets/repo/${{ github.repository }}'
 
-    - name: Display status from deploy
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    - name: Display web upload status
+      if: steps.production.outputs.current == 'true'
       run: echo "${{ steps.deploy.outputs.status }}"
 
     - name: Upload server script
       id: deploy-server
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: Pendect/action-rsyncer@2554a1e574cf229fb144f23ea5971dbdca8ae8e3 # v1.1.0
+      if: steps.production.outputs.current == 'true'
+      uses: Pendect/action-rsyncer@v2.0.0
       env:
         DEPLOY_KEY: ${{secrets.rsync_private_key}}
       with:
@@ -145,6 +164,6 @@ jobs:
         src: 'dist-server/*'
         dest: 'rsync-user@tiye.me:/servers/polygonum/'
 
-    - name: Display status from deploy
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    - name: Display server upload status
+      if: steps.production.outputs.current == 'true'
       run: echo "${{ steps.deploy-server.outputs.status }}"

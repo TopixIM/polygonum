@@ -3,6 +3,8 @@
 .calcit-error.cirru
 
 js-out/
+compact.cirru
+package.cirru
 node_modules/
 .calcit/
 .yarn/*.gz
