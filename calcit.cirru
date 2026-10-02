@@ -7,7 +7,7 @@
       :feature-policy $ {}
       :modules $ [] |respo.calcit/ |lilac/ |recollect/ |memof/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/ |alerts.calcit/
       :type-slots $ {}
-    :server $ {} (:description |) (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!) (:target :node)
+    :server $ {} (:description |) (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!) (:target :native)
       :feature-policy $ {}
       :modules $ [] |lilac/ |recollect/ |memof/ |cumulo-util.calcit/ |cumulo-reel.calcit/ |calcit.std/ |calcit-wss/
       :type-slots $ {}
@@ -39,7 +39,7 @@
         'connect! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn connect! ()
             let
-                location $ unsafe-coerce js/location 'js-ffi.browser/LocationHost
+                location $ browser/location-host
                 url-obj $ unsafe-coerce
                   url-parse (.-href location) true
                   , 'app.client/ParsedUrlHost
@@ -59,17 +59,27 @@
             :args $ []
             :features $ #{} :js-ffi
         'dispatch! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn dispatch! (op op-data)
-            when
-              and config/dev? $ not= op :states
-              println |Dispatch op op-data
-            case-default op
-              ws-send! $ {} (:kind :op) (:op op) (:data op-data)
-              :states $ let[] (cursor s) op-data $ reset! *states (update-states @*states cursor s)
-              :effect/connect $ connect!
+          :code $ quote $ defn dispatch! (op)
+            let
+                action $ assert-type op 'Enum
+                op-tag $ &enum:nth action 0
+              when
+                and config/dev? $ not= op-tag :states
+                println |Dispatch action
+              match action
+                (:states cursor state)
+                  reset! *states $ update-states @*states cursor state
+                (:effect/connect) (connect!)
+                _ $ let
+                    message $ {} (:kind :op) (:op op-tag)
+                  match (nth action 1)
+                    (:none) (ws-send! message)
+                    (:some data)
+                      ws-send! $ assoc message :data data
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ [] 'Tag 'Dynamic
+            :args $ [] 'Dynamic
+            :features $ #{} :js-ffi
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! () (load-console-formatter!)
             println "|Running mode:" $ if config/dev? |dev |release
@@ -87,12 +97,12 @@
             :args $ []
             :features $ #{} :js-ffi
         'mount-target $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn mount-target () (.querySelector js/document |.app)
+          :code $ quote $ defn mount-target ()
+            .unwrap $ browser/query-selector |.app
           :examples $ []
-          :schema $ :: 'Fn $ {}
+          :schema $ :: 'Fn $ {} (:return 'js-ffi.browser/DomElementHost)
             :args $ []
             :features $ #{} :js-ffi
-            :return $ :: 'JsNullish 'JsObject
         'on-server-data $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-server-data (data)
             case-default (&map:get data :kind) (println "|unknown server data kind:" data)
@@ -120,8 +130,7 @@
           :code $ quote $ defn render-app! ()
             render! (mount-target)
               comp-container (&map:get @*states :states) @*store
-              unsafe-coerce dispatch! $ :: 'Fn $ {} (:return 'Unit)
-                :args $ [] 'Dynamic
+              , dispatch!
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -132,8 +141,8 @@
                 raw $ js/localStorage.getItem $ .unwrap-or (get config/site :storage-key) |
               if (js-present? raw)
                 do (println "|Found storage.")
-                  dispatch! :user/log-in $ parse-cirru-edn $ unsafe-coerce raw String
-                do $ println "|Found no storage."
+                  dispatch! $ :: :user/log-in $ parse-cirru-edn (unsafe-coerce raw String)
+                println "|Found no storage."
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -141,14 +150,15 @@
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.client
           :require
-            respo.core :refer $ render! clear-cache! realize-ssr!
-            respo.cursor :refer $ update-states
-            app.comp.container :refer $ comp-container
+            respo.core :refer $ [] render! clear-cache! realize-ssr!
+            respo.cursor :refer $ [] update-states
+            app.comp.container :refer $ [] comp-container
             app.schema :as schema
             app.config :as config
-            ws-edn.client :refer $ ws-connect! ws-send!
-            recollect.patch :refer $ patch-twig
-            cumulo-util.core :refer $ on-page-touch
+            ws-edn.client :refer $ [] ws-connect! ws-send!
+            recollect.patch :refer $ [] patch-twig
+            cumulo-util.core :refer $ [] on-page-touch
+            js-ffi.browser :as browser
             |url-parse :default url-parse
             |bottom-tip :default tip!
             |./calcit.build-errors :default client-errors
@@ -849,7 +859,8 @@
                   , fallback
               run-server! port
               println $ str "|Server started on port:" port
-            do (; "|init it before doing multi-threading") (identity @*reader-reel)
+            ; "|init it before doing multi-threading"
+            identity @*reader-reel
             set-interval 200 $ fn () $ render-loop!
             set-interval 600000 $ fn () $ persist-db!
             on-control-c on-exit!
