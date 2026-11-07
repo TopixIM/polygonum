@@ -57,7 +57,7 @@ jobs:
         calcit calcit.cirru --check-only
         calcit calcit.cirru --entry server --check-only
         calcit calcit.cirru fix --workflow strict --verify --format json > /dev/null
-        calcit calcit.cirru analyze weak-types --only deprecated-call --summary-only --format json | jq -e '.data.summary.count == 0' > /dev/null
+        calcit calcit.cirru analyze weak-types --only deprecated-call --summary-only --format json | jq -e '.data.summary.calls == 0' > /dev/null
         calcit --check-only --ns app.client --ns app.protocol --ns app.comp.container --ns app.comp.login --ns app.comp.navigation --ns app.comp.profile --ns app.comp.widget --ns app.config --ns app.schema --summary-only --format json
         calcit --entry server --check-only --ns 'app.$meta' --ns app.config --ns app.schema --ns app.protocol --ns app.server --ns app.twig.container --ns app.twig.user --ns app.updater --ns app.updater.router --ns app.updater.session --ns app.updater.topic --ns app.updater.user --summary-only --format json
         calcit --entry server test --require-match --summary-only --format json
