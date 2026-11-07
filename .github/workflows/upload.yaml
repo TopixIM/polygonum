@@ -37,28 +37,60 @@ jobs:
     - name: Set up Calcit and Caps
       uses: calcit-lang/setup-calcit@v1.5.0
       with:
-        version: "0.27.0"
+        deps-file: deps.cirru
         tools: calcit,caps
         caps-version: "0.1.1"
 
     - name: Resolve immutable dependencies
       run: |
         set -euo pipefail
-        caps --ci
+        caps --strict --ci
         yarn install --immutable
         caps verify --toolchain
 
     - name: Validate Calcit upgrade
       run: |
         set -euo pipefail
-        calcit fix --workflow strict --verify --format edn
+        test "$(calcit --version)" = "0.36.0"
         calcit calcit.cirru edit format
         git diff --exit-code -- calcit.cirru
         calcit calcit.cirru --check-only
         calcit calcit.cirru --entry server --check-only
-        calcit calcit.cirru analyze quality --baseline config/calcit-quality.cirru
-        calcit analyze check-public --ns app.client --ns app.comp.container --ns app.comp.login --ns app.comp.navigation --ns app.comp.profile --ns app.comp.widget --ns app.config --ns app.schema
-        calcit --entry server analyze check-public --ns 'app.$meta' --ns app.config --ns app.schema --ns app.server --ns app.twig.container --ns app.twig.user --ns app.updater --ns app.updater.router --ns app.updater.session --ns app.updater.topic --ns app.updater.user
+        calcit calcit.cirru fix --workflow strict --verify --format json > /dev/null
+        calcit calcit.cirru analyze weak-types --only deprecated-call --summary-only --format json | jq -e '.data.summary.calls == 0' > /dev/null
+        calcit --check-only --ns app.client --ns app.protocol --ns app.comp.container --ns app.comp.login --ns app.comp.navigation --ns app.comp.profile --ns app.comp.widget --ns app.config --ns app.schema --summary-only --format json
+        calcit --entry server --check-only --ns 'app.$meta' --ns app.config --ns app.schema --ns app.protocol --ns app.server --ns app.twig.container --ns app.twig.user --ns app.updater --ns app.updater.router --ns app.updater.session --ns app.updater.topic --ns app.updater.user --summary-only --format json
+        calcit --entry server test --require-match --summary-only --format json
+
+    - name: Load released shared test runner
+      uses: actions/checkout@v7.0.1
+      with:
+        repository: calcit-lang/calcit
+        ref: 0.36.0
+        path: .calcit/core-test-tools
+        persist-credentials: false
+        sparse-checkout-cone-mode: false
+        sparse-checkout: |
+          /scripts/run-core-tests.mjs
+          /scripts/core-test-protocol.mjs
+          /scripts/core-tests-exclusions.cirru
+          /docs/installation/wasm-support.md
+
+    - name: Replay portable domain and projection contracts
+      run: |
+        export CALCIT_BIN="$(command -v calcit)"
+        node .calcit/core-test-tools/scripts/run-core-tests.mjs \
+          --snapshot calcit.cirru --entry default \
+          --target app.protocol \
+          --target app.updater.topic --target app.updater.router \
+          --target app.twig.user --target app.twig.container/twig-members \
+          --target app.twig.container/twig-stack \
+          --target app.comp.container/topics-in-order \
+          --target app.comp.container/author-label \
+          --target app.schema/event-value \
+          --backend native,js \
+          --exclusions .calcit/core-test-tools/scripts/core-tests-exclusions.cirru \
+          --support-matrix .calcit/core-test-tools/docs/installation/wasm-support.md
 
     - name: Select CDN asset path
       id: asset-path
@@ -82,9 +114,7 @@ jobs:
       run: |
         set -euo pipefail
         yarn build
-        calcit calcit.cirru --entry server ir
         mkdir -p dist-server
-        cp js-out/program-ir.cirru dist-server/compact.cirru
         cp calcit.cirru deps.cirru package.json dist-server/
 
     - name: Check current production revision
