@@ -389,6 +389,9 @@
                     :value $ .unwrap-or (get state :draft) |
                     :placeholder |Reply...
                     :on-change $ fn (e d!)
+                      hint-fn $ Fn respo.schema/RespoEvent
+                        Fn app.schema/Op $ -> Unit
+                        -> Unit
                       d! $ schema/Op :states cursor $ assoc state :draft (schema/event-value e)
                   space-x 8
                   div ({})
@@ -555,6 +558,9 @@
                         :value $ .unwrap-or (get state :username) |
                         :style ui/input
                         :on-input $ fn (e d!)
+                          hint-fn $ Fn respo.schema/RespoEvent
+                            Fn app.schema/Op $ -> Unit
+                            -> Unit
                           d! $ schema/Op :states cursor $ assoc state :username (schema/event-value e)
                     space-y 8
                     div ({})
@@ -562,6 +568,9 @@
                         :value $ .unwrap-or (get state :password) |
                         :style ui/input
                         :on-input $ fn (e d!)
+                          hint-fn $ Fn respo.schema/RespoEvent
+                            Fn app.schema/Op $ -> Unit
+                            -> Unit
                           d! $ schema/Op :states cursor $ assoc state :password (schema/event-value e)
                         :type |password
                   space-y 8
@@ -1292,6 +1301,10 @@
             :topics $ Map String app.schema/Topic
           :examples $ []
           :schema $ quote StructDef
+        'InputEvent $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defunion InputEvent respo.schema/RespoEvent (Map Tag String)
+          :examples $ []
+          :schema $ quote UnionDef
         'Notification $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstruct Notification (:id String) (:text String)
           :examples $ []
@@ -1398,15 +1411,15 @@
           :schema $ quote app.schema/Db
         'event-value $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn event-value (event)
-            let
-                fields $ if (struct? event) (&struct:to-map event)
-                  decode-map-as event $ Map Tag Dynamic
-              match (get fields :value)
-                (:some value)
-                  if (nil? value) | $ decode-map-as value 'String
-                (:none) |
+            match event
+              (respo.schema/RespoEvent input)
+                let
+                    value $ :value input
+                  if (nil? value) | $ decode-map-as value String
+              (Map fields)
+                .unwrap-or (get fields :value) |
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> String)
+          :schema $ quote $ Fn app.schema/InputEvent (-> String)
           :tests $ [] $ %{} 'TestEntry (:name |checked-unicode-text-input)
             :code $ quote $ do
               assert= "|小猫 🌸" $ event-value $ {} (:value "|小猫 🌸")
@@ -1573,7 +1586,7 @@
             :code $ quote $ let
                 initial $ assert-type
                   ReelState :base schema/database :db schema/database :records ([]) :merged? false
-                  quote $ cumulo-reel.core/ReelState app.schema/Db
+                  cumulo-reel.core/ReelState app.schema/Db
                 connected $ reel-reducer initial updater (schema/Op :session/connect) 1 |c 0 true
                 changed $ reel-reducer connected updater (schema/Op :topic/add "|重放话题 🌸") 1 |t 1 true
                 replayed $ refresh-reel changed schema/database replay-op
